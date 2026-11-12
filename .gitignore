@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+JAYALAXMI_DOCUMENT_SYSTEM/database/*
+JAYALAXMI_DOCUMENT_SYSTEM/Uploaded_PDFs/*
+JAYALAXMI_DOCUMENT_SYSTEM/Generated_Letters/*
+JAYALAXMI_DOCUMENT_SYSTEM/Backup/*

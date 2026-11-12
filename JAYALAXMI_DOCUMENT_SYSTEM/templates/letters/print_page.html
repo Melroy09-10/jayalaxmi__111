@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{{ title }}</title>
+<link rel="stylesheet" href="/static/css/sheet.css">
+<style>{{ css }}</style>
+<style>body{margin:0;background:#fff}</style>
+</head><body>
+{% for f in fragments %}<div class="sheet">{{ f|safe }}</div>{% endfor %}
+</body></html>

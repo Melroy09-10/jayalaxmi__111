@@ -1,0 +1,8 @@
+/* Browser-only paper simulation (preview + print). */
+.sheet { width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 17.6mm 19mm; background: #fff; color: #000; margin: 0 auto; }
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  .sheet { margin: 0; box-shadow: none !important; border: 0 !important; page-break-after: always; break-after: page; height: 297mm; overflow: hidden; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+}

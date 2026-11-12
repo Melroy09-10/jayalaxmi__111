@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Document Management System{% endblock %} · Jayalaxmi Silks</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/letter.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sheet.css') }}">
+</head><body>
+<aside class="sidebar">
+  <div class="brand"><b>JAYALAXMI SILKS</b><span>Document System</span></div>
+  <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active=='dashboard' }}"><i class="bi bi-grid-1x2"></i>Dashboard</a>
+  <a href="{{ url_for('history') }}" class="{{ 'active' if active=='history' }}"><i class="bi bi-clock-history"></i>Document History</a>
+  <a href="{{ url_for('customers') }}" class="{{ 'active' if active=='customers' }}"><i class="bi bi-people"></i>Customer Details</a>
+  <a href="{{ url_for('settings') }}" class="{{ 'active' if active=='settings' }}"><i class="bi bi-gear"></i>Settings</a>
+  <div class="foot">Runs locally on this computer.<br>No data leaves this PC.</div>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <div><div class="t1">{{ co.company_name }}</div><div class="t2">Document Management System</div></div>
+    <div class="d-flex align-items-center gap-3"><span class="t2">{{ today }}</span>
+      <a href="{{ url_for('settings') }}" class="text-secondary fs-5" title="Settings"><i class="bi bi-gear"></i></a></div>
+  </header>
+  <main class="content">
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show no-print" role="alert">{{ m }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    {% endfor %}{% endwith %}
+    {% block body %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body></html>

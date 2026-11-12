@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block body %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
+  <div><h5 class="mb-0">{{ doc.receiver_name }}</h5>
+    <div class="text-secondary small">{{ doc.parcels }} parcel(s) · {{ doc.invoice_value|inr }}{% if doc.ewb_no %} · E-Way Bill {{ doc.ewb_no }}{% endif %} · {{ doc.created_at }}</div></div>
+  <div class="d-flex flex-wrap gap-2">
+    <button class="btn btn-navy" data-print="outward"><i class="bi bi-printer me-1"></i>Print Outward Letter</button>
+    <button class="btn btn-navy" data-print="from"><i class="bi bi-printer me-1"></i>Print From Letter</button>
+    <button class="btn btn-gold" data-print="both"><i class="bi bi-printer me-1"></i>Print Both</button>
+    <div class="btn-group"><button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Download PDF</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li></ul></div>
+  </div>
+</div>
+{% if warnings %}<div class="alert alert-warning no-print"><div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Please check before printing</div>
+  <ul class="mb-0 ps-3">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+<div id="printMsg" class="alert alert-info py-2 d-none no-print"></div>
+<div class="row g-3">
+  {% for title, html in [('Outward Letter', doc.outward_html), ('From Letter', doc.from_html)] %}
+  <div class="col-xl-6"><div class="small fw-semibold text-secondary mb-2">{{ title }}</div>
+    <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div>
+  {% endfor %}
+</div>
+<iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;visibility:hidden"></iframe>
+{% endblock %}
+{% block scripts %}<script>
+// Scale the 210mm sheets to fit their column so the preview shows the whole page.
+function fit(){document.querySelectorAll('.paper-wrap').forEach(w=>{
+  const box=w.querySelector('.paper-box'),sh=box.querySelector('.sheet');
+  sh.style.transform='none';const full=sh.offsetWidth,avail=w.clientWidth-36,s=Math.min(1,avail/full);
+  sh.style.transform='scale('+s+')';box.style.width=(full*s)+'px';box.style.height=(sh.offsetHeight*s)+'px'})}
+window.addEventListener('load',fit);window.addEventListener('resize',fit);
+const frame=document.getElementById('printFrame'),msg=document.getElementById('printMsg');
+let pending=null;
+document.querySelectorAll('[data-print]').forEach(b=>b.addEventListener('click',()=>{
+  pending=b.dataset.print;msg.className='alert alert-info py-2 no-print';msg.textContent='Preparing print layout…';
+  frame.src='/document/{{ doc.id }}/print/'+pending+'?t='+Date.now();}));
+frame.addEventListener('load',()=>{
+  if(!pending)return;
+  const label={outward:'Outward Letter',from:'From Letter',both:'both letters'}[pending];pending=null;
+  try{frame.contentWindow.focus();frame.contentWindow.print();
+    msg.textContent='The print dialog was opened for '+label+'. Choose your printer there to finish printing.';
+  }catch(e){msg.className='alert alert-danger py-2 no-print';msg.textContent='The print dialog could not be opened: '+e.message}
+});
+</script>{% endblock %}

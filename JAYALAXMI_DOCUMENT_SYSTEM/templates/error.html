@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block body %}
+<div class="card p-5 text-center"><i class="bi bi-exclamation-circle fs-1 text-warning"></i>
+<h5 class="mt-2">Something went wrong</h5><p class="text-secondary">{{ message }}</p>
+<div><a class="btn btn-navy" href="{{ url_for('dashboard') }}">Back to Dashboard</a></div></div>{% endblock %}

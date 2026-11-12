@@ -1,0 +1,24 @@
+/* Letter content styles - shared by the browser preview/print and the PDF engine. Keep it simple. */
+.letter { font-family: "Times New Roman", serif; font-size: 12.5pt; color: #000; line-height: 1.5; }
+.letter p { margin: 0; }
+.letter .lh { text-align: center; }
+.letter .lh .co { font-size: 17pt; font-weight: bold; color: #1F3A5F; margin: 0 0 4pt 0; }
+.letter .lh .ln { font-size: 10.5pt; line-height: 1.45; margin: 0; }
+.letter .lh .gap { margin-top: 5pt; }
+.letter hr { border: 0; border-top: 1.5pt solid #1F3A5F; margin: 8pt 0 0 0; height: 0; }
+.letter .date { text-align: right; font-weight: bold; margin-top: 14pt; }
+.letter .sal { margin-top: 22pt; }
+.letter .para { margin-top: 12pt; text-align: justify; }
+.letter .to-label { font-weight: normal; padding-left: 14pt; margin-top: 18pt; letter-spacing: 1pt; }
+.letter .recv { margin-top: 6pt; padding-left: 28pt; }
+.letter .recv .nm { font-weight: normal; }
+.letter .recv p { margin-bottom: 4pt; }
+.letter .note { margin-top: 18pt; }
+.letter .thanks { text-align: right; margin-top: 30pt; padding-right: 20pt; }
+/* From letter: plain Times, indented, generous spacing (matches the existing printed format) */
+.letter.from { font-family: "Times New Roman", serif; font-size: 12.5pt; line-height: 1.5; }
+.letter.from p { margin: 0 0 14pt 0; }
+.letter.from .lbl { font-weight: normal; margin-top: 56pt; }
+.letter.from .in { padding-left: 38pt; }
+.letter.from .book { font-weight: normal; margin-top: 48pt; }
+.letter.from .fromblk { margin-top: 64pt; }

@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block body %}
+<div class="row g-3 mb-4">
+{% for n,l,i in [(stats.total,'Total documents generated','bi-files'),(stats.outward,'Outward letters','bi-envelope-paper'),(stats['from'],'From letters','bi-box-seam'),(stats.pdfs,'E-Way Bill PDFs processed','bi-filetype-pdf')] %}
+  <div class="col-6 col-lg-3"><div class="card stat"><i class="bi {{ i }}"></i><div class="n">{{ n }}</div><div class="l">{{ l }}</div></div></div>
+{% endfor %}</div>
+
+<div class="card mb-4" style="border-left:4px solid var(--gold)"><div class="p-4">
+  <h5 class="mb-1">Create New Documents</h5>
+  <div class="text-secondary mb-3">Upload an E-Way Bill PDF. The details are read automatically and both letters are generated for you.</div>
+  <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" id="upForm">
+    <input type="file" name="pdf" accept="application/pdf,.pdf" class="d-none" id="pdfInput" required>
+    <label class="dropzone d-block" id="drop" style="cursor:pointer" for="pdfInput">
+      <i class="bi bi-cloud-arrow-up"></i>
+      <div class="fw-semibold mt-2" id="fname">Click to choose, or drag your E-Way Bill PDF here</div>
+      <div class="hint">PDF only · up to 15 MB · processed on this computer</div>
+    </label>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+      <div class="hint">{% if ocr %}<i class="bi bi-check-circle text-success"></i> OCR available for scanned PDFs.{% else %}<i class="bi bi-info-circle"></i> Scanned PDFs need Tesseract OCR (see README).{% endif %}</div>
+      <label for="pdfInput" class="btn btn-gold px-4 mb-0" id="upBtn"><i class="bi bi-upload me-2"></i>Upload E-Way Bill PDF</label>
+    </div>
+  </form></div></div>
+
+<div class="card"><div class="card-h d-flex justify-content-between">Recent Documents<a class="small text-decoration-none" href="{{ url_for('history') }}">View all</a></div>
+{% if recent %}<table class="t"><thead><tr><th>Receiver</th><th>E-Way Bill</th><th>Value</th><th>Parcels</th><th>Generated</th><th></th></tr></thead><tbody>
+{% for d in recent %}<tr><td class="fw-medium">{{ d.receiver_name }}</td><td>{{ d.ewb_no or '—' }}</td><td>{{ d.invoice_value|inr }}</td><td>{{ d.parcels }}</td><td>{{ d.created_at }}</td>
+<td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('view_document', doc_id=d.id) }}">Open</a></td></tr>{% endfor %}</tbody></table>
+{% else %}<div class="p-4 text-secondary">No documents yet. Upload your first E-Way Bill to get started.</div>{% endif %}</div>
+{% endblock %}
+{% block scripts %}<script>
+const inp=document.getElementById('pdfInput'),drop=document.getElementById('drop'),form=document.getElementById('upForm'),btn=document.getElementById('upBtn');
+function go(){if(!inp.files.length)return;document.getElementById('fname').textContent='Reading '+inp.files[0].name+' and generating letters…';
+  btn.classList.add('disabled');form.requestSubmit()}
+inp.addEventListener('change',go);
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('drag')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('drag')}));
+drop.addEventListener('drop',ev=>{if(ev.dataTransfer.files.length){inp.files=ev.dataTransfer.files;go()}});
+</script>{% endblock %}

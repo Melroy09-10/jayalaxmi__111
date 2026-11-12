@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block body %}
+<form class="card p-3 mb-3 d-flex flex-row flex-wrap gap-3 align-items-end" method="get">
+  <div class="flex-grow-1"><label class="form-label">Search receiver or E-Way Bill no.</label><input class="form-control" name="q" value="{{ q }}" placeholder="e.g. Ramesh Textiles or 4812…"></div>
+  <div><label class="form-label">From date</label><input type="date" class="form-control" name="from" value="{{ d_from }}"></div>
+  <div><label class="form-label">To date</label><input type="date" class="form-control" name="to" value="{{ d_to }}"></div>
+  <div class="d-flex gap-2"><button class="btn btn-navy">Search</button><a class="btn btn-outline-secondary" href="{{ url_for('history') }}">Clear</a></div>
+</form>
+<div class="card">{% if rows %}
+<table class="t"><thead><tr><th>Receiver</th><th>E-Way Bill</th><th>Value</th><th>Parcels</th><th>Generated</th><th>Original PDF</th><th></th></tr></thead><tbody>
+{% for d in rows %}<tr><td class="fw-medium">{{ d.receiver_name }}</td><td>{{ d.ewb_no or '—' }}</td><td>{{ d.invoice_value|inr }}</td><td>{{ d.parcels }}</td><td>{{ d.created_at }}</td>
+<td class="small text-secondary">{{ d.original_pdf }}</td>
+<td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('view_document', doc_id=d.id) }}">Open / Reprint</a>
+<a class="btn btn-sm btn-outline-secondary" title="Download both as PDF" href="{{ url_for('pdf_document', doc_id=d.id, which='both') }}"><i class="bi bi-download"></i></a></td></tr>{% endfor %}
+</tbody></table>{% else %}<div class="p-4 text-secondary">No documents match.</div>{% endif %}</div>
+{% endblock %}

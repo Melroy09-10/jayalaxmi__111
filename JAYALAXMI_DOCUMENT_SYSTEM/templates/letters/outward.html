@@ -1,0 +1,21 @@
+<div class="letter">
+  <div class="lh">
+    <p class="co">{{ company.company_name }}</p>
+    <p class="ln">{{ company.company_address_1 }}<br>{{ company.company_address_2 }}</p>
+    <p class="ln gap">E Mail ID: {{ company.company_email }}<br>Mobile No: {{ company.company_mobile }}</p>
+    <p class="ln gap">CIN: {{ company.company_cin }}</p>
+  </div>
+  <hr>
+  <p class="date">Date: {{ date_text }}</p>
+  <p class="sal">To whomsoever it may concern</p>
+  <p class="para">We herewith Sending {{ parcels }} parcel containing sum of {{ invoice_value }} to below address through {{ through }}.</p>
+  <p class="to-label">TO</p>
+  <div class="recv">
+    <p class="nm">{{ to_name }}</p>
+    <p>{{ to_address|lines }}</p>
+    {% if to_mobile %}<p>Mob: {{ to_mobile }}</p>{% endif %}
+    {% if show_ewb and ewb_no %}<p>E-Way Bill No: {{ ewb_no }}</p>{% endif %}
+  </div>
+  <p class="note">This does not contain any commercial value.</p>
+  <p class="thanks">Thanking You,</p>
+</div>
