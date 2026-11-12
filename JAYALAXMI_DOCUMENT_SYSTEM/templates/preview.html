@@ -15,6 +15,11 @@
 </div>
 {% if warnings %}<div class="alert alert-warning no-print"><div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Please check before printing</div>
   <ul class="mb-0 ps-3">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" action="{{ url_for('set_mobile', doc_id=doc.id) }}" class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
+  <label class="form-label mb-0 text-secondary"><i class="bi bi-telephone me-1"></i>Receiver mobile (optional)</label>
+  <input name="mobile" value="{{ mobile }}" class="form-control" style="width:260px" inputmode="tel" placeholder="9845100490 or 9845100490 / 6362226302">
+  <button class="btn btn-outline-secondary">{{ 'Update' if mobile else 'Add to letters' }}</button>
+</form>
 <div id="printMsg" class="alert alert-info py-2 d-none no-print"></div>
 <div class="row g-3">
   {% for title, html in [('Outward Letter', doc.outward_html), ('From Letter', doc.from_html)] %}

@@ -257,12 +257,52 @@ def save_document(up, data):
     return new_id, warn
 
 
+@app.route("/document/<int:doc_id>/mobile", methods=["POST"])
+def set_mobile(doc_id):
+    """Optional: add or change the receiver's mobile number. Regenerates both letters of this document."""
+    doc = load_doc(doc_id)
+    mobile, err = clean_mobile(request.form.get("mobile", ""))
+    if err:
+        flash(err, "danger")
+        return redirect(url_for("view_document", doc_id=doc_id))
+    data = {k: v for k, v in json.loads(doc["data_json"]).items() if k != "ctx"}
+    data["consignee_mobile"] = mobile
+    if mobile:
+        data["warnings"] = [w for w in data.get("warnings", []) if "mobile" not in w.lower()]
+    elif not any("mobile" in w.lower() for w in data.get("warnings", [])):
+        data.setdefault("warnings", []).append("No consignee mobile number; the Mob / PH line is left out.")
+    ctx, outward_html, from_html = build_documents(data, datetime.fromisoformat(doc["created_at"]))
+    try:
+        names, warn = write_pdfs(doc_id, doc["ewb_no"], outward_html, from_html)
+        with db.connect() as c:
+            c.execute("""UPDATE documents SET data_json=?,outward_html=?,from_html=?,outward_file=?,from_file=?,
+                         updated_at=datetime('now','localtime') WHERE id=?""",
+                      (json.dumps({**data, "ctx": ctx}), outward_html, from_html,
+                       names["outward"], names["from"], doc_id))
+            # remember it for next time, but never overwrite a number that is already saved
+            cust = db.find_customer(data["consignee_name"])
+            if mobile and cust and not cust["mobile"]:
+                c.execute("UPDATE customers SET mobile=? WHERE id=?", (mobile, cust["id"]))
+            elif mobile and not cust and data["consignee_name"] and data["consignee_address"] \
+                    and not data.get("_address_from_place"):
+                c.execute("INSERT INTO customers(name,name_key,address,mobile,booking) VALUES(?,?,?,?,?)",
+                          (data["consignee_name"], db.name_key(data["consignee_name"]),
+                           data["consignee_address"], mobile, data.get("booking", "")))
+        db.export_customers_csv()
+    except (ValueError, sqlite3.Error, OSError) as e:
+        flash(f"Could not update the letters: {e}", "danger")
+        return redirect(url_for("view_document", doc_id=doc_id))
+    flash("Mobile number saved in both letters." if mobile else "Mobile number removed from both letters.", "success")
+    return redirect(url_for("view_document", doc_id=doc_id))
+
+
 @app.route("/document/<int:doc_id>")
 def view_document(doc_id):
     """Read-only: opening a document never creates or modifies history."""
     doc = load_doc(doc_id)
     warnings = json.loads(doc["data_json"]).get("warnings", [])
-    return render_template("preview.html", doc=doc, warnings=warnings, active="history")
+    mobile = json.loads(doc["data_json"]).get("consignee_mobile", "")
+    return render_template("preview.html", doc=doc, warnings=warnings, mobile=mobile, active="history")
 
 
 def fragments_for(doc, which):

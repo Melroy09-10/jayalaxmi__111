@@ -60,7 +60,8 @@ assert "We herewith Sending 1 parcel containing sum of Rs.38851.00 to below addr
 assert "SRI RAMESH TEXTILES" in page and "BOOKING : BANGALORE" in page
 assert "Parcel count is not in the E-Way Bill" in page          # warning, not a form
 assert "Place of Delivery was used" in page
-assert "<input" not in page.split("<main")[1].split("</main>")[0].replace('type="hidden"', "")  # no inputs
+body = page.split("<main")[1].split("</main>")[0]
+assert body.count("<input") == 1 and 'name="mobile"' in body  # only the optional mobile box, no data-entry form
 for which in ("outward", "from", "both"):
     r = c.get(f"/document/1/pdf/{which}")
     assert r.status_code == 200 and r.data.startswith(b"%PDF")
@@ -143,4 +144,16 @@ r = c.post("/upload", data={"pdf": (open(synthetic(["Number of Packages", "5"]),
            content_type="multipart/form-data")
 pg = c.get(r.headers["Location"]).data.decode()
 assert "Sending 5 parcel" in pg and "Parcel count is not" not in pg and pg.count("ACME SILKS") >= 2
+# adding a mobile number to an existing document updates both letters
+doc_id = r.headers["Location"].rsplit("/", 1)[1]
+assert "Mob:" not in pg
+assert c.post(f"/document/{doc_id}/mobile", data={"mobile": "123"}).status_code == 302
+assert "Mob:" not in c.get(f"/document/{doc_id}").data.decode()
+c.post(f"/document/{doc_id}/mobile", data={"mobile": "98451 00490, 6362226302"})
+pg = c.get(f"/document/{doc_id}").data.decode()
+assert "Mob: 9845100490 / 6362226302" in pg and "PH 9845100490 / 6362226302" in pg
+assert "No consignee mobile number was found" not in pg
+for which in ("outward", "from"):
+    txt = pymupdf.open("pdf", c.get(f"/document/{doc_id}/pdf/{which}").data)[0].get_text()
+    assert "9845100490 / 6362226302" in txt, which
 print("ALL OK")
