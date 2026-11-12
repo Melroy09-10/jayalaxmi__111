@@ -114,11 +114,8 @@ def load_doc(doc_id):
 @app.route("/")
 def dashboard():
     with db.connect() as c:
-        n_docs = c.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
-        stats = {"total": n_docs * 2, "outward": n_docs, "from": n_docs,
-                 "pdfs": c.execute("SELECT COUNT(*) FROM uploads").fetchone()[0]}
         recent = c.execute("SELECT * FROM documents ORDER BY id DESC LIMIT 6").fetchall()
-    return render_template("dashboard.html", stats=stats, recent=recent, active="dashboard",
+    return render_template("dashboard.html", recent=recent, active="dashboard",
                            ocr=extractor.ocr_available())
 
 

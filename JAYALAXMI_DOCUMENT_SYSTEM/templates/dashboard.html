@@ -1,9 +1,4 @@
 {% extends "base.html" %}{% block body %}
-<div class="row g-3 mb-4">
-{% for n,l,i in [(stats.total,'Total documents generated','bi-files'),(stats.outward,'Outward letters','bi-envelope-paper'),(stats['from'],'From letters','bi-box-seam'),(stats.pdfs,'E-Way Bill PDFs processed','bi-filetype-pdf')] %}
-  <div class="col-6 col-lg-3"><div class="card stat"><i class="bi {{ i }}"></i><div class="n">{{ n }}</div><div class="l">{{ l }}</div></div></div>
-{% endfor %}</div>
-
 <div class="card mb-4" style="border-left:4px solid var(--gold)"><div class="p-4">
   <h5 class="mb-1">Create New Documents</h5>
   <div class="text-secondary mb-3">Upload an E-Way Bill PDF. The details are read automatically and both letters are generated for you.</div>
