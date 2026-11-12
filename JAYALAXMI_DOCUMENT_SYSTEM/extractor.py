@@ -15,7 +15,7 @@ FIELDS = [
     "ewb_no", "ewb_date", "consignor_name", "consignor_address", "consignor_gstin",
     "consignee_name", "consignee_address", "consignee_gstin", "invoice_no", "invoice_date",
     "invoice_value", "transporter_name", "transporter_id", "transport_doc_no", "vehicle_no",
-    "delivery_location", "consignee_mobile", "packages",
+    "delivery_location", "consignee_mobile", "packages", "booking_city",
 ]
 
 # Fields that must be present (or typed in) for the letters to be correct.
@@ -129,6 +129,26 @@ def _sections(lines):
         if current:
             out[current].append(line)
     return out
+
+
+
+STATES = {
+    "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh", "goa", "gujarat", "haryana",
+    "himachal pradesh", "jharkhand", "karnataka", "kerala", "madhya pradesh", "maharashtra", "manipur",
+    "meghalaya", "mizoram", "nagaland", "odisha", "orissa", "punjab", "rajasthan", "sikkim", "tamil nadu",
+    "telangana", "tripura", "uttar pradesh", "uttarakhand", "west bengal", "delhi", "new delhi", "puducherry",
+    "pondicherry", "jammu and kashmir", "ladakh", "chandigarh", "india",
+}
+BOOKING_LABEL_RE = (r"^\s*(?:Booking|Destination|Deliver(?:y|ed)|Drop|Ship(?:ping)?)\s*"
+                    r"(?:To\s*)?(?:Location|City|Place|Station|Town|Point)(?:\s*:\s*|\s*$)|^\s*Destination(?:\s*:\s*|\s*$)")
+
+
+def city_of(text):
+    """Pick the city out of 'Davanagere, Karnataka - 577001', 'Davanagere - 577001' or a full address."""
+    t = re.sub(r"[-\u2013\u2014]?\s*\b\d{6}\b", " ", text or "")             # drop PIN code
+    parts = [re.sub(r"\s+", " ", x).strip(" .-\u2013\u2014") for x in re.split(r"[,\u2013\u2014]|\s-\s", t)]
+    parts = [x for x in parts if x and x.lower() not in STATES and not re.fullmatch(r"[\d\s/-]+", x)]
+    return parts[-1] if len(parts) > 1 and text.count(",") >= 2 else (parts[0] if parts else "")
 
 
 def _gstin_and_name(value):
@@ -259,6 +279,16 @@ def extract(path):
         if m:
             f["consignee_mobile"] = m.group(1)
 
+    # --- Booking city: explicit label > place of delivery > the recipient address (never guessed)
+    explicit = _strip_note(_label_value(lines, BOOKING_LABEL_RE))
+    if explicit:
+        f["booking_city"] = city_of(explicit) if re.search(r"[,\d]", explicit) else explicit
+    elif f["delivery_location"]:
+        f["booking_city"] = city_of(f["delivery_location"])
+    elif f["consignee_address"] and (re.search(r"(?<!\d)\d{6}(?!\d)", f["consignee_address"])
+                                     or f["consignee_address"].count(",") >= 2):
+        f["booking_city"] = city_of(f["consignee_address"])
+
     # --- Warnings
     inv_nos = {_clean(x) for x in re.findall(r"(?:Document|Invoice)\s*(?:No\.?|Number)\s*[:\-]?\s*([^\n]+)", flat, re.I)}
     inv_nos.discard("")
@@ -280,7 +310,8 @@ def extract(path):
         for label, key in (("Recipient name", "consignee_name"), ("Address", "consignee_address"),
                            ("Mobile", "consignee_mobile"), ("Package count", "packages"),
                            ("Invoice value", "invoice_value"), ("Transporter", "transporter_name"),
-                           ("Place of delivery", "delivery_location")):
+                           ("Place of delivery", "delivery_location"),
+                           ("Booking city", "booking_city")):
             print(f"{label:18}: {f[key]!r}")
         print("=" * 58, flush=True)
     return {"fields": f, "missing": missing, "warnings": warnings, "ocr": used_ocr}

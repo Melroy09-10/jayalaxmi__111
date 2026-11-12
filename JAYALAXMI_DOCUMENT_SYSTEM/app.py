@@ -194,10 +194,12 @@ def auto_data(result):
         mobile = ""
     if not mobile:
         warnings.append("No consignee mobile number was found; the Mob / PH line is left out.")
-    city = re.split(r"[,\u2013-]", place)[0].strip().upper() if place else ""
-    booking = saved["booking"] if saved and saved["booking"] else city
+    # The city from this E-Way Bill always wins; a saved record is only a fallback when the PDF has none.
+    booking = fields.get("booking_city", "").strip().upper()
+    if not booking and saved and saved["booking"]:
+        booking = saved["booking"]
     if not booking:
-        warnings.append("Booking location was not found in the E-Way Bill.")
+        warnings.append("Booking city was not found in the E-Way Bill, so BOOKING is left blank.")
     through = fields.get("transporter_name", "")
     if not through:
         warnings.append("Transporter / sending-through was not found in the E-Way Bill.")

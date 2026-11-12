@@ -186,4 +186,39 @@ assert "Comic" not in s and 'value="12.5"' in s and 'value="#1F3A5F"' in s
 c.post("/format", data={"action": "reset"})
 r = c.post("/upload", data={"pdf": (open(comp, "rb"), comp.name)}, content_type="multipart/form-data")
 assert "We herewith Sending" in c.get(r.headers["Location"]).data.decode()
+# booking city comes from the E-Way Bill itself (not a placeholder, not a stale saved customer record)
+def booking_pdf(name, place_lines, address="12 Main Road, Davanagere, Karnataka - 577001"):
+    d = pymupdf.open()
+    pg = d.new_page()
+    y = 60
+    base = ["E-Way Bill No:", "TEST-7777-0001", "GSTIN of Recipient", "29PQRSX5678L1Z2 (TEST GSTIN)",
+            "Recipient Name", name, "Recipient Address", address] + place_lines + [
+            "Value of Goods", "1500.00", "Transporter Name", "Ravi"]
+    for ln in base:
+        pg.insert_text((50, y), ln, fontsize=10)
+        y += 16
+    p = tmp / f"book{abs(hash((name, tuple(place_lines), address)))}.pdf"
+    p.write_bytes(d.tobytes())
+    return p
+
+def upload_and_get(path):
+    r = c.post("/upload", data={"pdf": (open(path, "rb"), Path(path).name)}, content_type="multipart/form-data")
+    loc = r.headers["Location"]
+    return c.get(loc).data.decode(), loc
+
+# MINAXI SILK HOUSE is already a saved customer with booking BENGALURU; this bill goes to Davanagere
+pg, loc = upload_and_get(booking_pdf("MINAXI SILK HOUSE", ["Place of Delivery", "Davanagere, Karnataka - 577001"]))
+assert "BOOKING : DAVANAGERE" in pg and "BOOKING : BENGALURU" not in pg
+txt = pymupdf.open("pdf", c.get(loc + "/pdf/from").data)[0].get_text()
+assert "BOOKING : DAVANAGERE" in txt and "CITY" not in txt
+# explicit booking label wins over place of delivery
+pg, _ = upload_and_get(booking_pdf("NEW PARTY", ["Booking Location", "Hubballi, Karnataka - 580020",
+                                                  "Place of Delivery", "Dharwad, Karnataka - 580001"]))
+assert "BOOKING : HUBBALLI" in pg
+# no place of delivery: city is taken from the recipient address
+pg, _ = upload_and_get(booking_pdf("ADDRESS ONLY CO", []))
+assert "BOOKING : DAVANAGERE" in pg
+# nothing at all: a blank line and a warning, never a made-up value
+pg, _ = upload_and_get(booking_pdf("NO LOCATION CO", [], address="Some shop"))
+assert "Booking city was not found" in pg and "BOOKING : ________" in pg and "BOOKING : CITY" not in pg
 print("ALL OK")

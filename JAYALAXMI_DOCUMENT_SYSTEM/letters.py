@@ -19,7 +19,7 @@ LETTER_CSS = (config.BASE_DIR / "static" / "css" / "letter.css").read_text(encod
 
 
 _HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
-_GAPS = {"compact": (26, 34), "normal": (48, 64), "wide": (70, 90)}
+_GAPS = {"compact": (30, 50), "normal": (47, 80), "wide": (70, 110)}
 
 
 def clean_format(raw):
