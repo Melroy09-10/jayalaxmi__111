@@ -365,6 +365,42 @@ def history():
     return render_template("history.html", rows=rows, q=q, d_from=d_from, d_to=d_to, active="history")
 
 
+# --------------------------------------------------------------------------- letter format
+SAMPLE_DATA = {
+    "parcels": 2, "consignee_name": "SAMPLE RECEIVER NAME",
+    "consignee_address": "No. 1, Sample Street, Sample Area,\nCity - 560001", "consignee_mobile": "9876543210",
+    "booking": "CITY", "through": "Transporter Name", "ewb_no": "", "invoice_value": 38851.0,
+}
+
+
+def preview_pair(format_values):
+    settings = {**db.get_settings(), **format_values}
+    ctx = letters.build_context(SAMPLE_DATA, settings)
+    return letters.render_outward(ctx), letters.render_from(ctx)
+
+
+@app.route("/format", methods=["GET", "POST"])
+def letter_format():
+    """Edit the wording and look of both letters. Applies to letters generated from now on."""
+    if request.method == "POST":
+        if request.form.get("action") == "reset":
+            db.save_settings(config.FORMAT_DEFAULTS)
+            flash("Letter format reset to the original.", "success")
+        else:
+            db.save_settings(letters.clean_format(request.form))
+            flash("Letter format saved. New letters will use it; existing documents are unchanged.", "success")
+        return redirect(url_for("letter_format"))
+    s = db.get_settings()
+    vals = letters.clean_format({k: s.get(k) for k in config.FORMAT_DEFAULTS})
+    return render_template("format.html", f=vals, fonts=config.FONTS, active="format")
+
+
+@app.route("/format/preview", methods=["POST"])
+def format_preview():
+    outward, from_ = preview_pair(letters.clean_format(request.form))
+    return {"outward": outward, "from": from_}
+
+
 # --------------------------------------------------------------------------- customers
 @app.route("/customers")
 def customers():

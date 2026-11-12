@@ -1,11 +1,11 @@
-<div class="letter from">
-  <p class="lbl">To</p>
+<div class="letter from" style="font-family: {{ fmt.fmt_font }}; font-size: {{ fmt.fmt_size_from }}pt;">
+  <p class="lbl">{{ fmt.fmt_from_to }}</p>
   <p class="in">{{ to_name }}</p>
   <p class="in">{{ to_address|lines }}</p>
-  {% if to_mobile %}<p class="in">PH {{ to_mobile }}</p>{% endif %}
-  <p class="book">BOOKING : {{ booking }}</p>
-  <div class="fromblk">
-    <p class="lbl in" style="margin-top:0">FROM</p>
+  {% if to_mobile %}<p class="in">{{ fmt.fmt_from_ph }} {{ to_mobile }}</p>{% endif %}
+  <p class="book" style="margin-top: {{ fmt.book_gap }}pt;">{{ fmt.fmt_from_booking }} {{ booking }}</p>
+  <div class="fromblk" style="margin-top: {{ fmt.from_gap }}pt;">
+    <p class="lbl in" style="margin-top:0">{{ fmt.fmt_from_from }}</p>
     <p class="in">{{ company.from_line_1 }}</p>
     <p class="in">{{ company.from_line_2 }}</p>
     <p class="in">{{ company.from_line_3 }}</p>

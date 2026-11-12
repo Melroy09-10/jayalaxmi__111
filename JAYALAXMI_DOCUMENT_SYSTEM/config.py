@@ -34,6 +34,32 @@ DEFAULT_SETTINGS = {
     "default_parcels": "1",
 }
 
+# Letter format (editable on the "Letter Format" page). Stored in the settings table.
+FORMAT_DEFAULTS = {
+    "fmt_font": "Times New Roman, serif",
+    "fmt_size_out": "12.5",
+    "fmt_size_from": "12.5",
+    "fmt_name_color": "#1F3A5F",
+    "fmt_out_salutation": "To whomsoever it may concern",
+    "fmt_out_body": "We herewith Sending {parcels} parcel containing sum of {amount} to below address through {through}.",
+    "fmt_out_to_label": "TO",
+    "fmt_out_mob_label": "Mob:",
+    "fmt_out_note": "This does not contain any commercial value.",
+    "fmt_out_closing": "Thanking You,",
+    "fmt_out_closing_align": "right",
+    "fmt_from_to": "To",
+    "fmt_from_ph": "PH",
+    "fmt_from_booking": "BOOKING :",
+    "fmt_from_from": "FROM",
+    "fmt_from_gap": "normal",
+}
+FONTS = {
+    "Times New Roman, serif": "Times New Roman",
+    "Arial, Helvetica, sans-serif": "Arial",
+    "Courier New, monospace": "Courier New",
+}
+DEFAULT_SETTINGS.update(FORMAT_DEFAULTS)
+
 DATE_FORMATS = {
     "%d/%m/%Y": "DD/MM/YYYY",
     "%d-%m-%Y": "DD-MM-YYYY",

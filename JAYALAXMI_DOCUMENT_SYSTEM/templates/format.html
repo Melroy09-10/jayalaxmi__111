@@ -1,0 +1,77 @@
+{% extends "base.html" %}{% block body %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <div><h5 class="mb-0">Letter Format</h5>
+    <div class="text-secondary small">Edit the wording and look of the Outward Letter and the From Letter. The preview updates as you type.</div></div>
+</div>
+<div class="row g-3">
+  <div class="col-xl-5">
+    <form method="post" id="fmtForm" class="card">
+      <div class="card-h">Both letters</div>
+      <div class="p-4 row g-3">
+        <div class="col-md-6"><label class="form-label">Font</label>
+          <select class="form-select" name="fmt_font">{% for k, v in fonts.items() %}<option value="{{ k }}" {{ 'selected' if f.fmt_font == k }}>{{ v }}</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label">Outward size (pt)</label><input class="form-control" type="number" step="0.5" min="9" max="18" name="fmt_size_out" value="{{ f.fmt_size_out }}"></div>
+        <div class="col-md-3"><label class="form-label">From size (pt)</label><input class="form-control" type="number" step="0.5" min="9" max="18" name="fmt_size_from" value="{{ f.fmt_size_from }}"></div>
+        <div class="col-md-6"><label class="form-label">Company name &amp; line colour</label><input class="form-control form-control-color w-100" type="color" name="fmt_name_color" value="{{ f.fmt_name_color }}"></div>
+      </div>
+      <div class="card-h border-top">Outward Letter wording</div>
+      <div class="p-4 row g-3">
+        <div class="col-12"><label class="form-label">Opening line</label><input class="form-control" name="fmt_out_salutation" value="{{ f.fmt_out_salutation }}"></div>
+        <div class="col-12"><label class="form-label">Main sentence</label><textarea class="form-control" name="fmt_out_body" rows="3">{{ f.fmt_out_body }}</textarea>
+          <div class="hint">Use <code>{parcels}</code>, <code>{amount}</code> and <code>{through}</code> where the values should go.</div></div>
+        <div class="col-md-6"><label class="form-label">Receiver label</label><input class="form-control" name="fmt_out_to_label" value="{{ f.fmt_out_to_label }}"></div>
+        <div class="col-md-6"><label class="form-label">Mobile label</label><input class="form-control" name="fmt_out_mob_label" value="{{ f.fmt_out_mob_label }}"></div>
+        <div class="col-12"><label class="form-label">Note line</label><input class="form-control" name="fmt_out_note" value="{{ f.fmt_out_note }}"><div class="hint">Leave empty to remove it.</div></div>
+        <div class="col-md-8"><label class="form-label">Closing</label><input class="form-control" name="fmt_out_closing" value="{{ f.fmt_out_closing }}"></div>
+        <div class="col-md-4"><label class="form-label">Closing position</label>
+          <select class="form-select" name="fmt_out_closing_align">{% for v in ['left','center','right'] %}<option value="{{ v }}" {{ 'selected' if f.fmt_out_closing_align == v }}>{{ v|capitalize }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="card-h border-top">From Letter wording</div>
+      <div class="p-4 row g-3">
+        <div class="col-md-6"><label class="form-label">"To" label</label><input class="form-control" name="fmt_from_to" value="{{ f.fmt_from_to }}"></div>
+        <div class="col-md-6"><label class="form-label">Phone label</label><input class="form-control" name="fmt_from_ph" value="{{ f.fmt_from_ph }}"></div>
+        <div class="col-md-6"><label class="form-label">Booking label</label><input class="form-control" name="fmt_from_booking" value="{{ f.fmt_from_booking }}"></div>
+        <div class="col-md-6"><label class="form-label">"From" label</label><input class="form-control" name="fmt_from_from" value="{{ f.fmt_from_from }}"></div>
+        <div class="col-md-6"><label class="form-label">Spacing between blocks</label>
+          <select class="form-select" name="fmt_from_gap">{% for v in ['compact','normal','wide'] %}<option value="{{ v }}" {{ 'selected' if f.fmt_from_gap == v }}>{{ v|capitalize }}</option>{% endfor %}</select></div>
+        <div class="col-12 hint">The sender address block (FROM) and the company header are edited in Settings.</div>
+      </div>
+      <div class="p-3 border-top d-flex justify-content-between">
+        <button class="btn btn-outline-secondary" name="action" value="reset" onclick="return confirm('Reset the letter format to the original?')">Reset to original</button>
+        <button class="btn btn-gold px-4" name="action" value="save"><i class="bi bi-check2 me-1"></i>Save format</button>
+      </div>
+    </form>
+  </div>
+  <div class="col-xl-7">
+    <div class="small fw-semibold text-secondary mb-2">Live preview (sample data)</div>
+    <div class="row g-3">
+      <div class="col-12"><div class="paper-wrap"><div class="paper-box"><div class="sheet" id="pvOut"></div></div></div></div>
+      <div class="col-12"><div class="paper-wrap"><div class="paper-box"><div class="sheet" id="pvFrom"></div></div></div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const form = document.getElementById('fmtForm');
+function fit() {
+  document.querySelectorAll('.paper-wrap').forEach(w => {
+    const box = w.querySelector('.paper-box'), sh = box.querySelector('.sheet');
+    sh.style.transform = 'none';
+    const full = sh.offsetWidth, s = Math.min(1, (w.clientWidth - 36) / full);
+    sh.style.transform = 'scale(' + s + ')';
+    box.style.width = (full * s) + 'px';
+    box.style.height = (sh.offsetHeight * s) + 'px';
+  });
+}
+let timer = null;
+async function refresh() {
+  const r = await fetch('{{ url_for("format_preview") }}', { method: 'POST', body: new FormData(form) });
+  const j = await r.json();
+  document.getElementById('pvOut').innerHTML = j.outward;
+  document.getElementById('pvFrom').innerHTML = j.from;
+  fit();
+}
+form.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 250); });
+window.addEventListener('resize', fit);
+refresh();
+</script>{% endblock %}

@@ -156,4 +156,34 @@ assert "No consignee mobile number was found" not in pg
 for which in ("outward", "from"):
     txt = pymupdf.open("pdf", c.get(f"/document/{doc_id}/pdf/{which}").data)[0].get_text()
     assert "9845100490 / 6362226302" in txt, which
+# letter format editor
+assert c.get("/format").status_code == 200 and b"Letter Format" in c.get("/").data
+pv = c.post("/format/preview", data={"fmt_out_closing": "Yours faithfully,", "fmt_from_booking": "DESTINATION :"}).get_json()
+assert "Yours faithfully," in pv["outward"] and "DESTINATION : CITY" in pv["from"]
+before_doc = c.get(f"/document/{doc_id}").data.decode()
+c.post("/format", data={
+    "action": "save", "fmt_font": "Arial, Helvetica, sans-serif", "fmt_size_out": "11", "fmt_size_from": "14",
+    "fmt_name_color": "#aa0000", "fmt_out_salutation": "Dear Sir/Madam,",
+    "fmt_out_body": "Sending {parcels} parcel(s) worth {amount} through {through}.", "fmt_out_to_label": "RECEIVER",
+    "fmt_out_mob_label": "Phone:", "fmt_out_note": "", "fmt_out_closing": "Regards,", "fmt_out_closing_align": "left",
+    "fmt_from_to": "TO", "fmt_from_ph": "TEL", "fmt_from_booking": "DESTINATION :", "fmt_from_from": "SENDER",
+    "fmt_from_gap": "compact"})
+r = c.post("/upload", data={"pdf": (open(comp, "rb"), comp.name)}, content_type="multipart/form-data")
+newid = r.headers["Location"].rsplit("/", 1)[1]
+pg = c.get(f"/document/{newid}").data.decode()
+for needle in ("Dear Sir/Madam,", "Sending 4 parcel(s) worth Rs.38851.00 through Vishal.", "RECEIVER", "Regards,",
+               "DESTINATION : BENGALURU", "SENDER", "#aa0000", "font-family: Arial"):
+    assert needle in pg, needle
+assert "This does not contain any commercial value." not in pg.split("<main")[1]
+assert c.get(f"/document/{doc_id}").data.decode() == before_doc      # existing documents keep their format
+outw = pymupdf.open("pdf", c.get(f"/document/{newid}/pdf/outward").data)
+assert outw.page_count == 1 and "Regards," in outw[0].get_text() and "Dear Sir/Madam," in outw[0].get_text()
+# invalid values fall back instead of breaking the letters
+c.post("/format", data={"action": "save", "fmt_font": "Comic Sans", "fmt_size_out": "999", "fmt_name_color": "red",
+                        "fmt_out_closing_align": "sideways", "fmt_from_gap": "huge", "fmt_out_body": ""})
+s = c.get("/format").data.decode()
+assert "Comic" not in s and 'value="12.5"' in s and 'value="#1F3A5F"' in s
+c.post("/format", data={"action": "reset"})
+r = c.post("/upload", data={"pdf": (open(comp, "rb"), comp.name)}, content_type="multipart/form-data")
+assert "We herewith Sending" in c.get(r.headers["Location"]).data.decode()
 print("ALL OK")

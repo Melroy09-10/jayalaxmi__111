@@ -1,5 +1,6 @@
 """Letter rendering (HTML fragments) and PDF generation."""
 import io
+import re
 from datetime import datetime
 
 import pymupdf
@@ -17,6 +18,44 @@ _env.filters["lines"] = lambda s: Markup("<br>".join(escape(l.strip()) for l in 
 LETTER_CSS = (config.BASE_DIR / "static" / "css" / "letter.css").read_text(encoding="utf-8")
 
 
+_HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_GAPS = {"compact": (26, 34), "normal": (48, 64), "wide": (70, 90)}
+
+
+def clean_format(raw):
+    """Validate user-entered format settings; anything invalid falls back to the default."""
+    d = config.FORMAT_DEFAULTS
+    out = {}
+    for k, default in d.items():
+        v = " ".join(str(raw.get(k, default) if raw.get(k) is not None else default).split())[:300]
+        out[k] = v
+    if out["fmt_font"] not in config.FONTS:
+        out["fmt_font"] = d["fmt_font"]
+    if not _HEX.match(out["fmt_name_color"]):
+        out["fmt_name_color"] = d["fmt_name_color"]
+    for k in ("fmt_size_out", "fmt_size_from"):
+        try:
+            size = float(out[k])
+            out[k] = str(size).rstrip("0").rstrip(".") if 9 <= size <= 18 else d[k]
+        except ValueError:
+            out[k] = d[k]
+    if out["fmt_out_closing_align"] not in ("left", "center", "right"):
+        out["fmt_out_closing_align"] = d["fmt_out_closing_align"]
+    if out["fmt_from_gap"] not in _GAPS:
+        out["fmt_from_gap"] = d["fmt_from_gap"]
+    if not out["fmt_out_body"]:
+        out["fmt_out_body"] = d["fmt_out_body"]
+    return out
+
+
+def build_format(settings, parcels, amount, through):
+    f = clean_format({k: settings.get(k) for k in config.FORMAT_DEFAULTS})
+    body = (f["fmt_out_body"].replace("{parcels}", str(parcels)).replace("{amount}", amount)
+            .replace("{through}", through))
+    book_gap, from_gap = _GAPS[f["fmt_from_gap"]]
+    return {**f, "body": body, "book_gap": book_gap, "from_gap": from_gap}
+
+
 def money(value):
     return f"Rs.{float(value):.2f}"
 
@@ -32,7 +71,11 @@ def build_context(data, settings, when=None):
     """Snapshot everything a letter needs. Stored with the document so later
     changes to Settings never alter documents that were already generated."""
     when = when or datetime.now()
+    amount = money(data["invoice_value"]) if data["invoice_value"] != "" else "Rs.________"
+    through = data["through"] or "________"
+    parcels = int(data["parcels"])
     return {
+        "fmt": build_format(settings, parcels, amount, through),
         "company": {k: settings.get(k, "") for k in config.DEFAULT_SETTINGS},
         "date_text": format_date(when, settings.get("date_format", "%d/%m/%Y")),
         "parcels": int(data["parcels"]),
