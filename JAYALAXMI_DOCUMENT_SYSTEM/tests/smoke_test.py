@@ -221,4 +221,22 @@ assert "BOOKING : DAVANAGERE" in pg
 # nothing at all: a blank line and a warning, never a made-up value
 pg, _ = upload_and_get(booking_pdf("NO LOCATION CO", [], address="Some shop"))
 assert "Booking city was not found" in pg and "BOOKING : ________" in pg and "BOOKING : CITY" not in pg
+# optional login for hosted use
+import os
+os.environ["APP_PASSWORD"] = "s3cret-test"
+anon = appmod.app.test_client()
+r = anon.get("/")
+assert r.status_code == 302 and "/login" in r.headers["Location"]
+assert anon.get("/document/1").status_code == 302 and anon.get("/history").status_code == 302
+assert anon.post("/upload", data={}).status_code == 302
+assert anon.get("/static/css/app.css").status_code == 200 and anon.get("/login").status_code == 200
+assert b"Wrong password" in anon.post("/login", data={"password": "nope"}, follow_redirects=True).data
+assert anon.get("/").status_code == 302
+r = anon.post("/login?next=//evil.com", data={"password": "s3cret-test"})
+assert r.status_code == 302 and "evil.com" not in r.headers["Location"]
+assert anon.get("/").status_code == 200 and b"Log out" in anon.get("/").data
+anon.get("/logout")
+assert anon.get("/").status_code == 302
+del os.environ["APP_PASSWORD"]
+assert c.get("/").status_code == 200   # local use: no password
 print("ALL OK")

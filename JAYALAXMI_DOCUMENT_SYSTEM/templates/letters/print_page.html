@@ -4,5 +4,5 @@
 <style>{{ css }}</style>
 <style>body{margin:0;background:#fff}</style>
 </head><body>
-{% for f in fragments %}<div class="sheet">{{ f|safe }}</div>{% endfor %}
+{% for f in fragments %}<div class="sheet{% if 'letter from' in f|string %} land{% endif %}">{{ f|safe }}</div>{% endfor %}
 </body></html>

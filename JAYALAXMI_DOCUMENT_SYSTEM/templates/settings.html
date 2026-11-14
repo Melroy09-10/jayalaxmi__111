@@ -12,7 +12,6 @@
   <div class="col-md-4"><label class="form-label">Date format</label><select class="form-select" name="date_format">
     {% for k,v in formats.items() %}<option value="{{ k }}" {{ 'selected' if s.date_format==k }}>{{ v }}</option>{% endfor %}</select></div>
   <div class="col-md-3"><label class="form-label">Paper size</label><select class="form-select" name="paper_size"><option>A4</option></select></div>
-  <div class="col-md-5"><label class="form-label">Extra output folder (optional)</label><input class="form-control" name="output_folder" value="{{ s.output_folder }}" placeholder="C:\Letters"><div class="hint">PDFs are also copied here when generated.</div></div>
   <div class="col-md-4"><label class="form-label">Default number of parcels</label><input type="number" min="1" class="form-control" name="default_parcels" value="{{ s.default_parcels }}"><div class="hint">Used when the E-Way Bill has no parcel count.</div></div>
   <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="show_ewb_in_outward" id="se" {{ 'checked' if s.show_ewb_in_outward=='1' }}><label class="form-check-label" for="se">Show E-Way Bill number in the Outward Letter</label></div></div>
   <div class="col-12 text-end"><button class="btn btn-navy px-4">Save settings</button></div>
@@ -31,6 +30,5 @@
       <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="confirm" id="rc" required><label class="form-check-label" for="rc">I understand this replaces my current data</label></div>
       <button class="btn btn-outline-danger" onclick="return confirm('Restore from this backup?')">Restore backup</button></form>
   </div></div></div>
-  <div class="col-12"><div class="card p-3 d-flex flex-row align-items-center justify-content-between"><span>Customer records are managed on their own page.</span><a class="btn btn-outline-secondary" href="{{ url_for('customers') }}">Open Customer Details</a></div></div>
 </div>
 {% endblock %}

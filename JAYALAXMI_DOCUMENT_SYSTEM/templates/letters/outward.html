@@ -7,15 +7,15 @@
   </div>
   <hr style="border-top-color: {{ fmt.fmt_name_color }};">
   <p class="date">Date: {{ date_text }}</p>
-  {% if fmt.fmt_out_salutation %}<p class="sal">{{ fmt.fmt_out_salutation }}</p>{% endif %}
-  <p class="para">{{ fmt.body }}</p>
-  {% if fmt.fmt_out_to_label %}<p class="to-label">{{ fmt.fmt_out_to_label }}</p>{% endif %}
+  {% if fmt.fmt_out_salutation %}<p class="sal" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_salutation }}</p>{% endif %}
+  <p class="para" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.body }}</p>
+  {% if fmt.fmt_out_to_label %}<p class="to-label" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_to_label }}</p>{% endif %}
   <div class="recv">
-    <p class="nm">{{ to_name }}</p>
-    <p>{{ to_address|lines }}</p>
-    {% if to_mobile %}<p>{{ fmt.fmt_out_mob_label }} {{ to_mobile }}</p>{% endif %}
-    {% if show_ewb and ewb_no %}<p>E-Way Bill No: {{ ewb_no }}</p>{% endif %}
+    <p class="nm" style="font-weight: {{ fmt.fmt_weight_out }};">{{ to_name }}</p>
+    <p style="font-weight: {{ fmt.fmt_weight_out }};">{{ to_address|addr }}</p>
+    {% if to_mobile %}<p style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_mob_label }} {{ to_mobile }}</p>{% endif %}
+    {% if show_ewb and ewb_no %}<p style="font-weight: {{ fmt.fmt_weight_out }};">E-Way Bill No: {{ ewb_no }}</p>{% endif %}
   </div>
-  {% if fmt.fmt_out_note %}<p class="note">{{ fmt.fmt_out_note }}</p>{% endif %}
-  {% if fmt.fmt_out_closing %}<p class="thanks" style="text-align: {{ fmt.fmt_out_closing_align }};">{{ fmt.fmt_out_closing }}</p>{% endif %}
+  {% if fmt.fmt_out_note %}<p class="note" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_note }}</p>{% endif %}
+  {% if fmt.fmt_out_closing %}<p class="thanks" style="font-weight: {{ fmt.fmt_weight_out }}; text-align: {{ fmt.fmt_out_closing_align }};">{{ fmt.fmt_out_closing }}</p>{% endif %}
 </div>

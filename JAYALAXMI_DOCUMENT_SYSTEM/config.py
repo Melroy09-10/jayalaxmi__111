@@ -1,4 +1,5 @@
 ﻿"""Paths and default configuration for the Jayalaxmi Document System."""
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -10,7 +11,7 @@ BACKUP_DIR = BASE_DIR / "Backup"
 DB_PATH = DB_DIR / "jayalaxmi.db"
 
 # Temporary: print the raw PDF text and extracted fields to the console on every upload.
-DEBUG_EXTRACTION = True
+DEBUG_EXTRACTION = os.environ.get("JAYALAXMI_DEBUG", "1") == "1"
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 HOST = "127.0.0.1"
 PORT = 5050
@@ -38,7 +39,9 @@ DEFAULT_SETTINGS = {
 FORMAT_DEFAULTS = {
     "fmt_font": "Times New Roman, serif",
     "fmt_size_out": "12.5",
-    "fmt_size_from": "12.5",
+    "fmt_size_from": "27",
+    "fmt_weight_out": "normal",
+    "fmt_weight_from": "bold",
     "fmt_name_color": "#1F3A5F",
     "fmt_out_salutation": "To whomsoever it may concern",
     "fmt_out_body": "We herewith Sending {parcels} parcel containing sum of {amount} to below address through {through}.",
@@ -50,7 +53,7 @@ FORMAT_DEFAULTS = {
     "fmt_from_to": "To",
     "fmt_from_ph": "PH",
     "fmt_from_booking": "BOOKING :",
-    "fmt_from_from": "FROM",
+    "fmt_from_from": "From",
     "fmt_from_gap": "normal",
 }
 FONTS = {

@@ -1,8 +1,11 @@
 """JAYALAXMI SILKS - Document Management System (local Flask app)."""
 import hashlib
 import io
+import hmac
 import json
+import os
 import re
+import secrets
 import shutil
 import sqlite3
 import socket
@@ -16,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from flask import (Flask, abort, flash, redirect, render_template, request, send_file,
-                   url_for, Response)
+                   session, url_for)
 from werkzeug.utils import secure_filename
 
 import config
@@ -26,7 +29,70 @@ import letters
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_BYTES
-app.secret_key = "jayalaxmi-local-only"  # local single-user app; no login in v1
+
+
+def _secret_key():
+    """SECRET_KEY from the environment (hosting) or a random key kept next to the database."""
+    key = os.environ.get("SECRET_KEY")
+    if key:
+        return key
+    f = config.DB_DIR / "secret.key"
+    if not f.exists():
+        f.write_text(secrets.token_hex(32))
+    return f.read_text().strip()
+
+
+app.secret_key = _secret_key()
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  SESSION_COOKIE_SECURE=os.environ.get("HTTPS_ONLY") == "1",
+                  PERMANENT_SESSION_LIFETIME=60 * 60 * 12)
+db.init_db()
+_failed = {"n": 0, "until": 0.0}
+
+
+# --------------------------------------------------------------------------- optional login
+# Local use needs no password. When the app is hosted online, set the APP_PASSWORD environment
+# variable and every page (except the login page and static files) requires it.
+def auth_required():
+    return bool(os.environ.get("APP_PASSWORD"))
+
+
+@app.before_request
+def require_login():
+    if not auth_required() or request.endpoint in ("login", "static"):
+        return None
+    if session.get("auth") is True:
+        return None
+    return redirect(url_for("login", next=request.full_path if request.method == "GET" else "/"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not auth_required():
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        if time.time() < _failed["until"]:
+            flash("Too many wrong attempts. Wait a minute and try again.", "danger")
+        elif hmac.compare_digest(request.form.get("password", "").encode(), os.environ["APP_PASSWORD"].encode()):
+            _failed["n"] = 0
+            session.clear()
+            session["auth"] = True
+            session.permanent = True
+            nxt = request.args.get("next", "/")
+            return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
+        else:
+            _failed["n"] += 1
+            if _failed["n"] >= 5:
+                _failed.update(n=0, until=time.time() + 60)
+            flash("Wrong password.", "danger")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
 
 MOBILE_OK = re.compile(r"^[6-9]\d{9}$")
 
@@ -43,7 +109,7 @@ def inr_filter(v):
 @app.context_processor
 def inject_globals():
     s = db.get_settings()
-    return {"co": s, "today": datetime.now().strftime("%A, %d %B %Y")}
+    return {"co": s, "today": datetime.now().strftime("%A, %d %B %Y"), "auth_on": auth_required()}
 
 
 def clean_mobile(raw):
@@ -83,25 +149,6 @@ def build_documents(data, when=None):
     return ctx, letters.render_outward(ctx), letters.render_from(ctx)
 
 
-def write_pdfs(doc_id, ewb, outward_html, from_html):
-    """Create PDFs in Generated_Letters (never overwriting) and mirror to the output folder."""
-    tag = re.sub(r"\W+", "", ewb or "") or "noewb"
-    names, warn = {}, None
-    for which, html in (("outward", outward_html), ("from", from_html)):
-        pdf = letters.fragment_to_pdf(html)
-        p = unique_path(config.LETTER_DIR, f"{doc_id}_{tag}_{which}.pdf")
-        p.write_bytes(pdf)
-        names[which] = p.name
-        out = db.get_settings().get("output_folder", "").strip()
-        if out:
-            try:
-                Path(out).mkdir(parents=True, exist_ok=True)
-                shutil.copy2(p, unique_path(out, p.name))
-            except OSError as e:
-                warn = f"Could not copy to the output folder ({e.strerror or e})."
-    return names, warn
-
-
 def load_doc(doc_id):
     with db.connect() as c:
         row = c.execute("SELECT * FROM documents WHERE id=?", (doc_id,)).fetchone()
@@ -113,10 +160,7 @@ def load_doc(doc_id):
 # --------------------------------------------------------------------------- pages
 @app.route("/")
 def dashboard():
-    with db.connect() as c:
-        recent = c.execute("SELECT * FROM documents ORDER BY id DESC LIMIT 6").fetchall()
-    return render_template("dashboard.html", recent=recent, active="dashboard",
-                           ocr=extractor.ocr_available())
+    return render_template("dashboard.html", active="dashboard", ocr=extractor.ocr_available())
 
 
 def upload_error(msg):
@@ -176,25 +220,21 @@ def auto_data(result):
     blank and is reported in ``warnings`` (shown on the preview) - never invented."""
     fields = result["fields"]
     settings = db.get_settings()
-    saved = db.find_customer(fields.get("consignee_name"))
     place = fields.get("delivery_location", "")
     warnings = []
-    address = fields.get("consignee_address") or (saved["address"] if saved else "")
+    address = fields.get("consignee_address", "")
     from_place = False
     if not address and place:
         address, from_place = place, True
         warnings.append("The E-Way Bill has no full consignee address; the Place of Delivery was used.")
     elif not address:
         warnings.append("Consignee address was not found in the E-Way Bill.")
-    mobile, err = clean_mobile(fields.get("consignee_mobile") or (saved["mobile"] if saved else ""))
+    mobile, err = clean_mobile(fields.get("consignee_mobile", ""))
     if err:
         mobile = ""
     if not mobile:
         warnings.append("No consignee mobile number was found; the Mob / PH line is left out.")
-    # The city from this E-Way Bill always wins; a saved record is only a fallback when the PDF has none.
     booking = fields.get("booking_city", "").strip().upper()
-    if not booking and saved and saved["booking"]:
-        booking = saved["booking"]
     if not booking:
         warnings.append("Booking city was not found in the E-Way Bill, so BOOKING is left blank.")
     through = fields.get("transporter_name", "")
@@ -233,14 +273,6 @@ def ewb_of(fields):
 def save_document(up, data):
     """Render both letters, store them and write PDFs. Returns (doc_id, warning)."""
     ctx, outward_html, from_html = build_documents(data)
-    # remember new receivers; an existing record is never overwritten
-    if (data["consignee_name"] and data["consignee_address"] and not data["_address_from_place"]
-            and not db.find_customer(data["consignee_name"])):
-        with db.connect() as c:
-            c.execute("INSERT INTO customers(name,name_key,address,mobile,booking) VALUES(?,?,?,?,?)",
-                      (data["consignee_name"], db.name_key(data["consignee_name"]),
-                       data["consignee_address"], data["consignee_mobile"], data["booking"]))
-        db.export_customers_csv()
     snapshot = json.dumps({**data, "ctx": ctx})
     with db.connect() as c:
         cur = c.execute("""INSERT INTO documents(upload_id,ewb_no,receiver_name,invoice_value,parcels,
@@ -249,11 +281,7 @@ def save_document(up, data):
                          data["invoice_value"] or None, int(data["parcels"]), up["original_name"],
                          snapshot, outward_html, from_html))
         new_id = cur.lastrowid
-    names, warn = write_pdfs(new_id, data["ewb_no"], outward_html, from_html)
-    with db.connect() as c:
-        c.execute("UPDATE documents SET outward_file=?,from_file=? WHERE id=?",
-                  (names["outward"], names["from"], new_id))
-    return new_id, warn
+    return new_id, None
 
 
 @app.route("/document/<int:doc_id>/mobile", methods=["POST"])
@@ -272,22 +300,10 @@ def set_mobile(doc_id):
         data.setdefault("warnings", []).append("No consignee mobile number; the Mob / PH line is left out.")
     ctx, outward_html, from_html = build_documents(data, datetime.fromisoformat(doc["created_at"]))
     try:
-        names, warn = write_pdfs(doc_id, doc["ewb_no"], outward_html, from_html)
         with db.connect() as c:
-            c.execute("""UPDATE documents SET data_json=?,outward_html=?,from_html=?,outward_file=?,from_file=?,
+            c.execute("""UPDATE documents SET data_json=?,outward_html=?,from_html=?,
                          updated_at=datetime('now','localtime') WHERE id=?""",
-                      (json.dumps({**data, "ctx": ctx}), outward_html, from_html,
-                       names["outward"], names["from"], doc_id))
-            # remember it for next time, but never overwrite a number that is already saved
-            cust = db.find_customer(data["consignee_name"])
-            if mobile and cust and not cust["mobile"]:
-                c.execute("UPDATE customers SET mobile=? WHERE id=?", (mobile, cust["id"]))
-            elif mobile and not cust and data["consignee_name"] and data["consignee_address"] \
-                    and not data.get("_address_from_place"):
-                c.execute("INSERT INTO customers(name,name_key,address,mobile,booking) VALUES(?,?,?,?,?)",
-                          (data["consignee_name"], db.name_key(data["consignee_name"]),
-                           data["consignee_address"], mobile, data.get("booking", "")))
-        db.export_customers_csv()
+                      (json.dumps({**data, "ctx": ctx}), outward_html, from_html, doc_id))
     except (ValueError, sqlite3.Error, OSError) as e:
         flash(f"Could not update the letters: {e}", "danger")
         return redirect(url_for("view_document", doc_id=doc_id))
@@ -301,7 +317,7 @@ def view_document(doc_id):
     doc = load_doc(doc_id)
     warnings = json.loads(doc["data_json"]).get("warnings", [])
     mobile = json.loads(doc["data_json"]).get("consignee_mobile", "")
-    return render_template("preview.html", doc=doc, warnings=warnings, mobile=mobile, active="history")
+    return render_template("preview.html", doc=doc, warnings=warnings, mobile=mobile, active="dashboard")
 
 
 def fragments_for(doc, which):
@@ -344,26 +360,6 @@ def original_pdf(upload_id):
                      download_name=up["original_name"])
 
 
-@app.route("/history")
-def history():
-    q = request.args.get("q", "").strip()
-    d_from = request.args.get("from", "")
-    d_to = request.args.get("to", "")
-    sql, args = "SELECT * FROM documents WHERE 1=1", []
-    if q:
-        sql += " AND (receiver_name LIKE ? OR ewb_no LIKE ?)"
-        args += [f"%{q}%", f"%{q}%"]
-    if d_from:
-        sql += " AND date(created_at) >= date(?)"
-        args.append(d_from)
-    if d_to:
-        sql += " AND date(created_at) <= date(?)"
-        args.append(d_to)
-    with db.connect() as c:
-        rows = c.execute(sql + " ORDER BY id DESC", args).fetchall()
-    return render_template("history.html", rows=rows, q=q, d_from=d_from, d_to=d_to, active="history")
-
-
 # --------------------------------------------------------------------------- letter format
 SAMPLE_DATA = {
     "parcels": 2, "consignee_name": "SAMPLE RECEIVER NAME",
@@ -400,24 +396,6 @@ def format_preview():
     return {"outward": outward, "from": from_}
 
 
-# --------------------------------------------------------------------------- customers
-@app.route("/customers")
-def customers():
-    q = request.args.get("q", "").strip()
-    with db.connect() as c:
-        rows = c.execute("SELECT * FROM customers WHERE name LIKE ? ORDER BY name", (f"%{q}%",)).fetchall()
-    return render_template("customers.html", rows=rows, q=q, active="customers")
-
-
-@app.route("/customers/<int:cid>/delete", methods=["POST"])
-def delete_customer(cid):
-    with db.connect() as c:
-        c.execute("DELETE FROM customers WHERE id=?", (cid,))
-    db.export_customers_csv()
-    flash("Customer deleted.", "success")
-    return redirect(url_for("customers"))
-
-
 # --------------------------------------------------------------------------- settings / backup
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
@@ -428,13 +406,7 @@ def settings():
             vals["default_parcels"] = "1"
         if vals.get("date_format") not in config.DATE_FORMATS:
             vals.pop("date_format", None)
-        out = vals.get("output_folder", "")
-        if out:
-            try:
-                Path(out).mkdir(parents=True, exist_ok=True)
-            except OSError as e:
-                flash(f"Output folder is not usable: {e.strerror or e}", "danger")
-                return redirect(url_for("settings"))
+        vals.pop("output_folder", None)
         db.save_settings(vals)
         flash("Settings saved. They apply to new letters only; existing documents are unchanged.", "success")
         return redirect(url_for("settings"))

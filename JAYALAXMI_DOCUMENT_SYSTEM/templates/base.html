@@ -10,11 +10,9 @@
 <aside class="sidebar">
   <div class="brand"><b>JAYALAXMI SILKS</b><span>Document System</span></div>
   <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active=='dashboard' }}"><i class="bi bi-grid-1x2"></i>Dashboard</a>
-  <a href="{{ url_for('history') }}" class="{{ 'active' if active=='history' }}"><i class="bi bi-clock-history"></i>Document History</a>
-  <a href="{{ url_for('customers') }}" class="{{ 'active' if active=='customers' }}"><i class="bi bi-people"></i>Customer Details</a>
   <a href="{{ url_for('letter_format') }}" class="{{ 'active' if active=='format' }}"><i class="bi bi-layout-text-window"></i>Letter Format</a>
   <a href="{{ url_for('settings') }}" class="{{ 'active' if active=='settings' }}"><i class="bi bi-gear"></i>Settings</a>
-  <div class="foot">Runs locally on this computer.<br>No data leaves this PC.</div>
+  <div class="foot">{% if auth_on %}<a href="{{ url_for('logout') }}" style="padding:0;margin:0 0 8px"><i class="bi bi-box-arrow-left"></i>Log out</a>{% else %}Runs locally on this computer.<br>No data leaves this PC.{% endif %}</div>
 </aside>
 <div class="main">
   <header class="topbar">

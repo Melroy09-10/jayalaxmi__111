@@ -14,12 +14,6 @@
       <label for="pdfInput" class="btn btn-gold px-4 mb-0" id="upBtn"><i class="bi bi-upload me-2"></i>Upload E-Way Bill PDF</label>
     </div>
   </form></div></div>
-
-<div class="card"><div class="card-h d-flex justify-content-between">Recent Documents<a class="small text-decoration-none" href="{{ url_for('history') }}">View all</a></div>
-{% if recent %}<table class="t"><thead><tr><th>Receiver</th><th>E-Way Bill</th><th>Value</th><th>Parcels</th><th>Generated</th><th></th></tr></thead><tbody>
-{% for d in recent %}<tr><td class="fw-medium">{{ d.receiver_name }}</td><td>{{ d.ewb_no or '—' }}</td><td>{{ d.invoice_value|inr }}</td><td>{{ d.parcels }}</td><td>{{ d.created_at }}</td>
-<td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('view_document', doc_id=d.id) }}">Open</a></td></tr>{% endfor %}</tbody></table>
-{% else %}<div class="p-4 text-secondary">No documents yet. Upload your first E-Way Bill to get started.</div>{% endif %}</div>
 {% endblock %}
 {% block scripts %}<script>
 const inp=document.getElementById('pdfInput'),drop=document.getElementById('drop'),form=document.getElementById('upForm'),btn=document.getElementById('upBtn');
