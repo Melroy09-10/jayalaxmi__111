@@ -236,7 +236,7 @@ REQUIRED_FIELDS = {
     "consignee_name": "Receiver name",
     "consignee_address": "Receiver address",
     "through": "Sending through (transporter)",
-    "invoice_value": "Invoice value (Rs.)",
+    "invoice_value": "Total amount (Rs.)",
     "parcels": "Number of parcels",
     "consignee_mobile": "Receiver mobile (optional, e.g. 9845100490 / 6362226302)",
 }
@@ -261,7 +261,9 @@ def complete_upload(upload_id):
         missing = missing + ["parcels"]
     if not auto["consignee_mobile"]:
         missing = missing + ["consignee_mobile"]
-    defaults = {"parcels": auto["parcels"]}
+    if "invoice_value" not in missing:      # always let the user confirm / correct the total amount
+        missing = missing + ["invoice_value"]
+    defaults = {"parcels": auto["parcels"], "invoice_value": auto["invoice_value"]}
     errors, answers = {}, {}
     if request.method == "POST":
         for k in missing:

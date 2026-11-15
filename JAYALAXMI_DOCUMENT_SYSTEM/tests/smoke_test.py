@@ -101,7 +101,7 @@ pg.insert_text((50, 120), "Something else entirely here for text", fontsize=10)
 r = c.post("/upload", data={"pdf": (open(tmp / "thin.pdf", "rb"), "thin.pdf")}, content_type="multipart/form-data")
 assert "/complete" in r.headers["Location"]
 ask = c.get(r.headers["Location"]).data.decode()
-for label in ("Receiver name", "Receiver address", "Sending through", "Invoice value"):
+for label in ("Receiver name", "Receiver address", "Sending through", "Total amount"):
     assert label in ask, label
 assert "________" not in ask
 # empty / bad answers are rejected; valid answers create the letters with the typed values
