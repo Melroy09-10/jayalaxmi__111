@@ -201,11 +201,27 @@ def upload():
             (f.filename, stored, hashlib.sha256(blob).hexdigest(), ewb, json.dumps(result)))
         up = c.execute("SELECT * FROM uploads WHERE id=?", (cur.lastrowid,)).fetchone()
         dup = c.execute("SELECT id FROM documents WHERE ewb_no=? AND ewb_no<>'' LIMIT 1", (ewb,)).fetchone()
+    if auto_data(result)["missing"]:
+        return redirect(url_for("complete_upload", upload_id=up["id"]))
+    return finish_upload(up, result, {})
+
+
+def finish_upload(up, result, answers):
+    """Build the letters from the extracted data plus anything the user typed for missing details."""
     data = auto_data(result)
+    for k, v in answers.items():
+        data[k] = v
     data["warnings"] = result["warnings"] + data["warnings"]
+    if "parcels" in answers:
+        data["warnings"] = [w for w in data["warnings"] if "Parcel count" not in w]
+    if answers.get("consignee_mobile"):
+        data["warnings"] = [w for w in data["warnings"] if "mobile" not in w.lower()]
+    with db.connect() as c:
+        dup = c.execute("SELECT id FROM documents WHERE ewb_no=? AND ewb_no<>'' LIMIT 1", (up["ewb_no"],)).fetchone()
     if dup:
-        data["warnings"].insert(0, f"Letters were already generated earlier for E-Way Bill {ewb} "
+        data["warnings"].insert(0, f"Letters were already generated earlier for E-Way Bill {up['ewb_no']} "
                                    f"(document #{dup['id']}).")
+    data.pop("missing", None)
     try:
         doc_id, warn = save_document(up, data)
     except (ValueError, sqlite3.Error, OSError) as e:
@@ -215,33 +231,93 @@ def upload():
     return redirect(url_for("view_document", doc_id=doc_id))
 
 
+# details the letters cannot do without: key -> label shown when asking for it
+REQUIRED_FIELDS = {
+    "consignee_name": "Receiver name",
+    "consignee_address": "Receiver address",
+    "through": "Sending through (transporter)",
+    "invoice_value": "Invoice value (Rs.)",
+    "parcels": "Number of parcels",
+    "consignee_mobile": "Receiver mobile (optional, e.g. 9845100490 / 6362226302)",
+}
+OPTIONAL_FIELDS = ("consignee_mobile",)
+
+
+@app.route("/upload/<int:upload_id>/complete", methods=["GET", "POST"])
+def complete_upload(upload_id):
+    """Ask for details the E-Way Bill did not contain, instead of printing blanks."""
+    with db.connect() as c:
+        up = c.execute("SELECT * FROM uploads WHERE id=?", (upload_id,)).fetchone()
+    if not up:
+        abort(404)
+    result = json.loads(up["extracted_json"])
+    auto = auto_data(result)
+    missing = auto["missing"]
+    if not missing:
+        return finish_upload(up, result, {})
+    # while the form is open, also let the user fill the other gaps (prefilled where a default exists)
+    pk = result["fields"].get("packages", "")
+    if not (pk.isdigit() and int(pk) > 0):
+        missing = missing + ["parcels"]
+    if not auto["consignee_mobile"]:
+        missing = missing + ["consignee_mobile"]
+    defaults = {"parcels": auto["parcels"]}
+    errors, answers = {}, {}
+    if request.method == "POST":
+        for k in missing:
+            v = " ".join(request.form.get(k, "").split())
+            if k == "consignee_mobile":
+                answers[k], err = clean_mobile(v)
+                if err:
+                    errors[k] = err
+            elif k == "parcels":
+                if v.isdigit() and int(v) > 0:
+                    answers[k] = int(v)
+                else:
+                    errors[k] = "Enter a whole number, e.g. 2"
+            elif not v:
+                errors[k] = "Please enter this detail."
+            elif k == "invoice_value":
+                try:
+                    answers[k] = float(v.replace(",", ""))
+                    if answers[k] <= 0:
+                        raise ValueError
+                except ValueError:
+                    errors[k] = "Enter the amount as a number, e.g. 38851.00"
+            else:
+                answers[k] = v
+        if not errors:
+            return finish_upload(up, result, answers)
+    return render_template("complete.html", up=up, missing=missing, labels=REQUIRED_FIELDS,
+                           errors=errors, values=request.form if request.method == "POST" else defaults, active="dashboard")
+
+
 def auto_data(result):
-    """Map extracted fields straight into letter data. Anything genuinely missing stays
-    blank and is reported in ``warnings`` (shown on the preview) - never invented."""
+    """Map extracted fields straight into letter data. Required details that are
+    genuinely missing are listed in ``missing`` so the user is asked for them - never invented."""
     fields = result["fields"]
     settings = db.get_settings()
     place = fields.get("delivery_location", "")
     warnings = []
+    missing = []
     address = fields.get("consignee_address", "")
     from_place = False
     if not address and place:
         address, from_place = place, True
         warnings.append("The E-Way Bill has no full consignee address; the Place of Delivery was used.")
     elif not address:
-        warnings.append("Consignee address was not found in the E-Way Bill.")
+        missing.append("consignee_address")
     mobile, err = clean_mobile(fields.get("consignee_mobile", ""))
     if err:
         mobile = ""
     if not mobile:
         warnings.append("No consignee mobile number was found; the Mob / PH line is left out.")
     booking = fields.get("booking_city", "").strip().upper()
-    if not booking:
-        warnings.append("Booking city was not found in the E-Way Bill, so BOOKING is left blank.")
     through = fields.get("transporter_name", "")
     if not through:
-        warnings.append("Transporter / sending-through was not found in the E-Way Bill.")
+        missing.append("through")
     if not fields.get("consignee_name"):
-        warnings.append("Consignee name was not found in the E-Way Bill.")
+        missing.append("consignee_name")
     value = ""
     try:
         if fields.get("invoice_value"):
@@ -249,7 +325,7 @@ def auto_data(result):
     except ValueError:
         pass
     if value == "":
-        warnings.append("Invoice value was not found in the E-Way Bill.")
+        missing.append("invoice_value")
     pk = fields.get("packages", "")
     if pk.isdigit() and int(pk) > 0:
         parcels = int(pk)
@@ -262,7 +338,7 @@ def auto_data(result):
         "parcels": parcels, "consignee_name": fields.get("consignee_name", ""),
         "consignee_address": address, "consignee_mobile": mobile, "booking": booking,
         "through": through, "ewb_no": ewb_of(fields), "invoice_no": fields.get("invoice_no", ""),
-        "invoice_value": value, "warnings": warnings, "_address_from_place": from_place,
+        "invoice_value": value, "warnings": warnings, "missing": missing, "_address_from_place": from_place,
     }
 
 

@@ -16,9 +16,7 @@ print-ready A4 letters (Outward Letter and From Letter). There is no data-entry 
 2. On the Dashboard click **Upload E-Way Bill PDF** and choose the file (or drag it in).
 3. Both letters are generated and previewed. Use **Print Outward / From / Both** (opens the Chrome print dialog;
    set Margins to None and untick Headers and footers) or **Download PDF**.
-4. Anything not found in the PDF is listed as a warning above the previews and shown as `________` in the
-   letter. Nothing is invented. The parcel count is not in an E-Way Bill, so a default is used
-   (Settings → Default number of parcels, initially 1).
+4. Any required detail not found in the PDF (receiver name, address, transporter, invoice value) is asked for on a short form, so letters never contain blanks. Other gaps are listed as warnings above the previews. Nothing is invented.
 
 ## Folders
 | Folder | Contents |

@@ -99,8 +99,18 @@ pg.insert_text((50, 100), "eWay Bill No: 5011 2233 4455", fontsize=10)
 pg.insert_text((50, 120), "Something else entirely here for text", fontsize=10)
 (tmp / "thin.pdf").write_bytes(d.tobytes())
 r = c.post("/upload", data={"pdf": (open(tmp / "thin.pdf", "rb"), "thin.pdf")}, content_type="multipart/form-data")
-thin = c.get(r.headers["Location"]).data.decode()
-assert "Consignee name was not found" in thin and "Invoice value was not found" in thin and "________" in thin
+assert "/complete" in r.headers["Location"]
+ask = c.get(r.headers["Location"]).data.decode()
+for label in ("Receiver name", "Receiver address", "Sending through", "Invoice value"):
+    assert label in ask, label
+assert "________" not in ask
+# empty / bad answers are rejected; valid answers create the letters with the typed values
+bad = c.post(r.headers["Location"], data={"consignee_name": "", "invoice_value": "abc"}).data.decode()
+assert "Please enter this detail." in bad and "Enter the amount as a number" in bad
+r2 = c.post(r.headers["Location"], data={"consignee_name": "TYPED CO", "consignee_address": "5 Park Road, Mysuru, Karnataka - 570001",
+                                         "through": "Ravi", "invoice_value": "1,250.50"})
+thin = c.get(r2.headers["Location"]).data.decode()
+assert "TYPED CO" in thin and "Rs.1250.50" in thin and "________" not in thin
 # the user's sectioned-layout sample: name, address, both mobiles, packages, transporter
 real = ROOT / "tests" / "sample_eway_bill_for_testing.pdf"
 r = c.post("/upload", data={"pdf": (open(real, "rb"), real.name)}, content_type="multipart/form-data")
@@ -218,9 +228,9 @@ assert "BOOKING : HUBBALLI" in pg
 # no place of delivery: city is taken from the recipient address
 pg, _ = upload_and_get(booking_pdf("ADDRESS ONLY CO", []))
 assert "BOOKING : DAVANAGERE" in pg
-# nothing at all: a blank line and a warning, never a made-up value
-pg, _ = upload_and_get(booking_pdf("NO LOCATION CO", [], address="Some shop"))
-assert "Booking city was not found" in pg and "BOOKING : ________" in pg and "BOOKING : CITY" not in pg
+# no address and no place: the user is asked for the address, never a blank
+pg, loc = upload_and_get(booking_pdf("NO LOCATION CO", [], address=""))
+assert "/complete" in loc and "Receiver address" in pg and "________" not in pg
 # optional login for hosted use
 import os
 os.environ["APP_PASSWORD"] = "s3cret-test"

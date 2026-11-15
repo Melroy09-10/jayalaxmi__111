@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block body %}
+<div class="mx-auto" style="max-width:620px">
+  <h5 class="mb-1"><i class="bi bi-pencil-square me-1"></i>A few details are missing</h5>
+  <p class="text-secondary">These were not found in the E-Way Bill{% if up.ewb_no %} {{ up.ewb_no }}{% endif %}. Please enter them to create the letters.</p>
+  <form method="post" class="card card-body">
+    {% for k in missing %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="f_{{ k }}">{{ labels[k] }}</label>
+      {% if k == 'consignee_address' %}
+        <textarea id="f_{{ k }}" name="{{ k }}" rows="3" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if loop.first %}autofocus{% endif %}>{{ values.get(k, '') }}</textarea>
+      {% else %}
+        <input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if k == 'invoice_value' %}inputmode="decimal"{% endif %} {% if loop.first %}autofocus{% endif %}>
+      {% endif %}
+      {% if errors.get(k) %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="d-flex gap-2">
+      <button class="btn btn-gold">Create letters</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
