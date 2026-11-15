@@ -115,14 +115,16 @@ def inject_globals():
 def clean_mobile(raw):
     """Return (one or more 10-digit mobiles joined as '9845100490 / 6362226302', error or None)."""
     parts = [p for p in re.split(r"[/,;]+", raw or "") if p.strip()]
+    if len(parts) > 2:
+        return "", "Enter at most 2 mobile numbers, each exactly 10 digits (separate two with /)."
     good = []
     for p in parts:
         digits = re.sub(r"[\s\-()]", "", p)
         digits = re.sub(r"^(\+?91|0)(?=\d{10}$)", "", digits)
         if not MOBILE_OK.match(digits):
-            return " / ".join(good), "Mobile numbers must be valid 10-digit Indian numbers (separate two with /)."
+            return ", ".join(good), "Each mobile number must be exactly 10 digits. You can enter 1 or 2 numbers (separate with /)."
         good.append(digits)
-    return " / ".join(good), None
+    return ", ".join(good), None
 
 
 def unique_path(folder, filename):
@@ -201,9 +203,7 @@ def upload():
             (f.filename, stored, hashlib.sha256(blob).hexdigest(), ewb, json.dumps(result)))
         up = c.execute("SELECT * FROM uploads WHERE id=?", (cur.lastrowid,)).fetchone()
         dup = c.execute("SELECT id FROM documents WHERE ewb_no=? AND ewb_no<>'' LIMIT 1", (ewb,)).fetchone()
-    if auto_data(result)["missing"]:
-        return redirect(url_for("complete_upload", upload_id=up["id"]))
-    return finish_upload(up, result, {})
+    return redirect(url_for("complete_upload", upload_id=up["id"]))
 
 
 def finish_upload(up, result, answers):
@@ -235,12 +235,11 @@ def finish_upload(up, result, answers):
 REQUIRED_FIELDS = {
     "consignee_name": "Receiver name",
     "consignee_address": "Receiver address",
-    "through": "Sending through (transporter)",
+    "through": "Sending through (optional)",
     "invoice_value": "Total amount (Rs.)",
     "parcels": "Number of parcels",
-    "consignee_mobile": "Receiver mobile (optional, e.g. 9845100490 / 6362226302)",
+    "consignee_mobile": "Receiver mobile number",
 }
-OPTIONAL_FIELDS = ("consignee_mobile",)
 
 
 @app.route("/upload/<int:upload_id>/complete", methods=["GET", "POST"])
@@ -252,18 +251,13 @@ def complete_upload(upload_id):
         abort(404)
     result = json.loads(up["extracted_json"])
     auto = auto_data(result)
-    missing = auto["missing"]
-    if not missing:
-        return finish_upload(up, result, {})
-    # while the form is open, also let the user fill the other gaps (prefilled where a default exists)
-    pk = result["fields"].get("packages", "")
-    if not (pk.isdigit() and int(pk) > 0):
-        missing = missing + ["parcels"]
-    if not auto["consignee_mobile"]:
-        missing = missing + ["consignee_mobile"]
-    if "invoice_value" not in missing:      # always let the user confirm / correct the total amount
-        missing = missing + ["invoice_value"]
-    defaults = {"parcels": auto["parcels"], "invoice_value": auto["invoice_value"]}
+    # fixed order on the form; name/address only appear when the E-Way Bill lacked them,
+    # the rest are always shown (prefilled) so they can be confirmed or changed
+    ORDER = ["consignee_name", "consignee_address", "consignee_mobile", "parcels", "invoice_value", "through"]
+    always = {"consignee_mobile", "parcels", "invoice_value", "through"}
+    missing = [k for k in ORDER if k in always or k in auto["missing"]]
+    defaults = {"parcels": auto["parcels"], "invoice_value": auto["invoice_value"],
+                "consignee_mobile": auto["consignee_mobile"], "through": auto["through"]}
     errors, answers = {}, {}
     if request.method == "POST":
         for k in missing:
@@ -277,6 +271,8 @@ def complete_upload(upload_id):
                     answers[k] = int(v)
                 else:
                     errors[k] = "Enter a whole number, e.g. 2"
+            elif k == "through":
+                answers[k] = v
             elif not v:
                 errors[k] = "Please enter this detail."
             elif k == "invoice_value":
@@ -292,6 +288,17 @@ def complete_upload(upload_id):
             return finish_upload(up, result, answers)
     return render_template("complete.html", up=up, missing=missing, labels=REQUIRED_FIELDS,
                            errors=errors, values=request.form if request.method == "POST" else defaults, active="dashboard")
+
+
+def parse_bill_date(text):
+    """'13/11/2026', '13-11-2026' or '13/11/2026 10:30 AM' -> datetime, or None."""
+    m = re.search(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", text or "")
+    if not m:
+        return None
+    try:
+        return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    except ValueError:
+        return None
 
 
 def auto_data(result):
@@ -316,8 +323,6 @@ def auto_data(result):
         warnings.append("No consignee mobile number was found; the Mob / PH line is left out.")
     booking = fields.get("booking_city", "").strip().upper()
     through = fields.get("transporter_name", "")
-    if not through:
-        missing.append("through")
     if not fields.get("consignee_name"):
         missing.append("consignee_name")
     value = ""
@@ -336,7 +341,9 @@ def auto_data(result):
         parcels = int(raw) if raw.isdigit() and int(raw) > 0 else 1
         warnings.append(f"Parcel count is not in the E-Way Bill; the default of {parcels} was used "
                         f"(change the default in Settings).")
+    bill_date = parse_bill_date(fields.get("ewb_date"))
     return {
+        "letter_date": bill_date.strftime("%Y-%m-%d") if bill_date else "",
         "parcels": parcels, "consignee_name": fields.get("consignee_name", ""),
         "consignee_address": address, "consignee_mobile": mobile, "booking": booking,
         "through": through, "ewb_no": ewb_of(fields), "invoice_no": fields.get("invoice_no", ""),
@@ -417,14 +424,26 @@ def print_document(doc_id, which):
 @app.route("/document/<int:doc_id>/pdf/<which>")
 def pdf_document(doc_id, which):
     doc = load_doc(doc_id)
-    frags = fragments_for(doc, which)
     try:
-        blob = letters.merge_pdfs([letters.fragment_to_pdf(f) for f in frags])
+        if which == "all":
+            # print order: From letter, Outward letter, then the original E-Way Bill
+            parts = [letters.fragment_to_pdf(doc["from_html"]), letters.fragment_to_pdf(doc["outward_html"])]
+            with db.connect() as c:
+                up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (doc["upload_id"],)).fetchone()
+            original = safe_child(config.UPLOAD_DIR, up["stored_name"]) if up else None
+            if not original or not original.exists():
+                flash("The original E-Way Bill file is no longer available, so all three cannot be printed.", "danger")
+                return redirect(url_for("view_document", doc_id=doc_id))
+            parts.append(original.read_bytes())
+            blob = letters.merge_pdfs(parts)
+        else:
+            blob = letters.merge_pdfs([letters.fragment_to_pdf(f) for f in fragments_for(doc, which)])
     except ValueError as e:
         flash(str(e), "danger")
         return redirect(url_for("view_document", doc_id=doc_id))
     tag = re.sub(r"\W+", "_", doc["receiver_name"]).strip("_") or "letter"
-    return send_file(io.BytesIO(blob), mimetype="application/pdf", as_attachment=True,
+    # ?view=1 opens it in the browser (for printing) instead of downloading
+    return send_file(io.BytesIO(blob), mimetype="application/pdf", as_attachment=not request.args.get("view"),
                      download_name=f"{tag}_{which}_{doc['id']}.pdf")
 
 
@@ -457,20 +476,20 @@ def letter_format():
     """Edit the wording and look of both letters. Applies to letters generated from now on."""
     if request.method == "POST":
         if request.form.get("action") == "reset":
-            db.save_settings(config.FORMAT_DEFAULTS)
+            db.save_settings(config.LETTER_DEFAULTS)
             flash("Letter format reset to the original.", "success")
         else:
-            db.save_settings(letters.clean_format(request.form))
+            db.save_settings(letters.clean_letter(request.form))
             flash("Letter format saved. New letters will use it; existing documents are unchanged.", "success")
         return redirect(url_for("letter_format"))
     s = db.get_settings()
-    vals = letters.clean_format({k: s.get(k) for k in config.FORMAT_DEFAULTS})
-    return render_template("format.html", f=vals, fonts=config.FONTS, active="format")
+    vals = letters.clean_letter({k: s.get(k) for k in config.LETTER_DEFAULTS})
+    return render_template("format.html", f=vals, fonts=config.FONT_CHOICES, active="format")
 
 
 @app.route("/format/preview", methods=["POST"])
 def format_preview():
-    outward, from_ = preview_pair(letters.clean_format(request.form))
+    outward, from_ = preview_pair(letters.clean_letter(request.form))
     return {"outward": outward, "from": from_}
 
 

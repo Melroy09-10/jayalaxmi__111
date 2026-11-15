@@ -1,23 +1,12 @@
-/* Letter content styles - shared by the browser preview/print and the PDF engine. Keep it simple. */
-.letter { font-family: "Times New Roman", serif; font-size: 12.5pt; color: #000; line-height: 1.5; }
+/* Layout follows the Word macros (indents, spacing). Fonts, sizes, weight and colour are set inline from the Letter Format page. */
+.letter { line-height: 1.24; }
 .letter p { margin: 0; }
-.letter .lh { text-align: center; }
-.letter .lh .co { font-size: 17pt; font-weight: bold; color: #1F3A5F; margin: 0 0 4pt 0; }
-.letter .lh .ln { font-size: 10.5pt; line-height: 1.45; margin: 0; }
-.letter .lh .gap { margin-top: 5pt; }
-.letter hr { border: 0; border-top: 1.5pt solid #1F3A5F; margin: 8pt 0 0 0; height: 0; }
-.letter .date { text-align: right; font-weight: bold; margin-top: 14pt; }
-.letter .sal { margin-top: 22pt; }
-.letter .para { margin-top: 12pt; text-align: justify; }
-.letter .to-label { font-weight: normal; padding-left: 14pt; margin-top: 18pt; letter-spacing: 1pt; }
-.letter .recv { margin-top: 6pt; padding-left: 28pt; }
-.letter .recv .nm { font-weight: normal; }
-.letter .recv p { margin-bottom: 4pt; }
-.letter .note { margin-top: 18pt; }
-.letter .thanks { text-align: right; margin-top: 80pt; padding-right: 20pt; }
-/* From letter: bold, large; labels at the margin, details indented, tight line spacing (matches the printed format) */
-.letter.from { font-family: "Times New Roman", serif; font-size: 27pt; line-height: 1.5; font-weight: bold; padding: 12pt 18pt 0 18pt; }
-.letter.from p { margin: 0; font-weight: bold; }
-.letter.from .lbl { font-weight: bold; margin-top: 0; }
-.letter.from .in { padding-left: 49pt; }
-.letter.from .book { padding-left: 49pt; font-weight: bold; }
+.letter .c { text-align: center; }
+.letter .r { text-align: right; }
+.letter.out .hd { text-align: center; }
+.letter.out .ind { padding-left: 39.6pt; }
+.letter.from .i1 { padding-left: 10.8pt; }
+.letter.from .i2 { padding-left: 50.4pt; }
+.letter.from .i3 { padding-left: 25.2pt; }
+.letter.from .i4 { padding-left: 72pt; }
+.letter.out .to { padding-left: 14pt; }

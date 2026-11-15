@@ -1,13 +1,16 @@
-<div class="letter from" style="font-family: {{ fmt.fmt_font }}; font-size: {{ fmt.fmt_size_from }}pt;">
-  <p class="lbl" style="font-weight:{{ fmt.fmt_weight_from }}">{{ fmt.fmt_from_to }}</p>
-  <p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ to_name }}</p>
-  <p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ to_address|addr }}</p>
-  {% if to_mobile %}<p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ fmt.fmt_from_ph }} {{ to_mobile }}</p>{% endif %}
-  <div class="fromblk" style="margin-top: {{ fmt.from_gap }}pt;">
-    <p class="lbl" style="font-weight:{{ fmt.fmt_weight_from }};margin-top:0">{{ fmt.fmt_from_from }}</p>
-    <p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ company.from_line_1 }}</p>
-    <p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ company.from_line_2 }}</p>
-    <p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ company.from_line_3 }}</p>
-    <p class="in" style="font-weight:{{ fmt.fmt_weight_from }}">{{ company.from_line_4 }}</p>
-  </div>
+{% macro P(cls, n, text, serif=False) -%}
+<p class="{{ cls }}" style="font-size:{{ sz_from[n] }};font-family:{{ ff_serif if serif else ff_sans }};font-weight:{{ wt_from }};color:{{ col_from }}">{{ text }}</p>
+{%- endmacro %}
+<div class="letter from">
+  {{ P('i1', 18, lt.lt_from_to) }}
+  {{ P('i2', 18, to_name_from) }}
+  {% for line in to_address_from %}{{ P('i2', 18, line) }}{% endfor %}
+  {% if to_mobile %}{{ P('i2', 18, lt.lt_ph ~ ' ' ~ to_mobile) }}{% endif %}
+  {{ P('i2', 18, NB) }}
+  {{ P('i2', 18, NB) }}
+  {{ P('i3', 16, lt.lt_from_from, True) }}
+  {{ P('i4', 14, lt.lt_from_1, True) }}
+  {{ P('i4', 14, lt.lt_from_2, True) }}
+  {{ P('i4', 14, lt.lt_from_3, True) }}
+  {% if lt.lt_from_4 %}{{ P('i4', 14, lt.lt_from_4, True) }}{% endif %}
 </div>

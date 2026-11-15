@@ -1,21 +1,20 @@
-<div class="letter" style="font-family: {{ fmt.fmt_font }}; font-size: {{ fmt.fmt_size_out }}pt;">
-  <div class="lh">
-    <p class="co" style="color: {{ fmt.fmt_name_color }};">{{ company.company_name }}</p>
-    <p class="ln">{{ company.company_address_1 }}<br>{{ company.company_address_2 }}</p>
-    <p class="ln gap">E Mail ID: {{ company.company_email }}<br>Mobile No: {{ company.company_mobile }}</p>
-    <p class="ln gap">CIN: {{ company.company_cin }}</p>
-  </div>
-  <hr style="border-top-color: {{ fmt.fmt_name_color }};">
-  <p class="date">Date: {{ date_text }}</p>
-  {% if fmt.fmt_out_salutation %}<p class="sal" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_salutation }}</p>{% endif %}
-  <p class="para" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.body }}</p>
-  {% if fmt.fmt_out_to_label %}<p class="to-label" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_to_label }}</p>{% endif %}
-  <div class="recv">
-    <p class="nm" style="font-weight: {{ fmt.fmt_weight_out }};">{{ to_name }}</p>
-    <p style="font-weight: {{ fmt.fmt_weight_out }};">{{ to_address|addr }}</p>
-    {% if to_mobile %}<p style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_mob_label }} {{ to_mobile }}</p>{% endif %}
-    {% if show_ewb and ewb_no %}<p style="font-weight: {{ fmt.fmt_weight_out }};">E-Way Bill No: {{ ewb_no }}</p>{% endif %}
-  </div>
-  {% if fmt.fmt_out_note %}<p class="note" style="font-weight: {{ fmt.fmt_weight_out }};">{{ fmt.fmt_out_note }}</p>{% endif %}
-  {% if fmt.fmt_out_closing %}<p class="thanks" style="font-weight: {{ fmt.fmt_weight_out }}; text-align: {{ fmt.fmt_out_closing_align }};">{{ fmt.fmt_out_closing }}</p>{% endif %}
+{% macro P(cls, n, text, serif=False, mt=0, lh=1.35) -%}
+<p class="{{ cls }}" style="font-size:{{ sz_out[n] }};font-family:{{ ff_serif if serif else ff_sans }};font-weight:{{ wt_out }};color:{{ col_out }};margin:{{ mt }}pt 0 0 0;line-height:{{ lh }}">{{ text }}</p>
+{%- endmacro %}
+<div class="letter out">
+  {{ P('hd', 14, lt.lt_company, True, 0, 1.3) }}
+  {{ P('c', 8, lt.lt_addr_1, True, 4) }}
+  {{ P('c', 8, lt.lt_addr_2, True) }}
+  {{ P('c', 8, lt.lt_contact|sp, True) }}
+  {{ P('c', 8, lt.lt_cin, True) }}
+  <hr style="border:0;border-top:1pt solid {{ col_out }};margin:9pt 0 0 0;height:0">
+  {{ P('r', 8, 'Date: ' ~ date_text, False, 14) }}
+  {% if lt.lt_salutation %}{{ P('c', 9, lt.lt_salutation, False, 26) }}{% endif %}
+  {{ P('', 10, body_1, False, 26, 1.5) }}
+  {% if body_2 %}{{ P('', 10, body_2, False, 0, 1.5) }}{% endif %}
+  {{ P('to', 12, lt.lt_to, False, 34) }}
+  {{ P('ind', 14, to_name_out, False, 8, 1.4) }}
+  {% for line in to_address_out %}{{ P('ind', 14, line, False, 2, 1.4) }}{% endfor %}
+  {% if to_mobile %}{{ P('ind', 14, lt.lt_ph ~ ' ' ~ to_mobile, False, 2, 1.4) }}{% endif %}
+  {% if lt.lt_closing %}{{ P('r', 10, lt.lt_closing, False, 56) }}{% endif %}
 </div>

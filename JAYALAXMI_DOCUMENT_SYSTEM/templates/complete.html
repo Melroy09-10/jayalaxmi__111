@@ -1,7 +1,6 @@
 {% extends "base.html" %}{% block body %}
 <div class="mx-auto" style="max-width:620px">
-  <h5 class="mb-1"><i class="bi bi-pencil-square me-1"></i>A few details are missing</h5>
-  <p class="text-secondary">These were not found in the E-Way Bill{% if up.ewb_no %} {{ up.ewb_no }}{% endif %}. Please enter them to create the letters.</p>
+  <h5 class="mb-1"><i class="bi bi-pencil-square me-1"></i>Enter details</h5>
   <form method="post" class="card card-body">
     {% for k in missing %}
     <div class="mb-3">
@@ -9,7 +8,7 @@
       {% if k == 'consignee_address' %}
         <textarea id="f_{{ k }}" name="{{ k }}" rows="3" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if loop.first %}autofocus{% endif %}>{{ values.get(k, '') }}</textarea>
       {% else %}
-        <input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if k == 'invoice_value' %}inputmode="decimal"{% endif %} {% if loop.first %}autofocus{% endif %}>
+        <input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if k == 'invoice_value' %}inputmode="decimal"{% endif %}{% if k == 'consignee_mobile' %}inputmode="tel" placeholder="1 or 2 numbers, 10 digits each: 9845100490, 6362226302"{% endif %} {% if loop.first %}autofocus{% endif %}>
       {% endif %}
       {% if errors.get(k) %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}
     </div>

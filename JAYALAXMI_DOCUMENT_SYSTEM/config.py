@@ -61,7 +61,45 @@ FONTS = {
     "Arial, Helvetica, sans-serif": "Arial",
     "Courier New, monospace": "Courier New",
 }
+# Editable letter text (Letter Format page). Defaults are exactly the wording of the Word macros.
+LETTER_DEFAULTS = {
+    "lt_company": "JAYALAXMI SILKS PRIVATE LIMITED",
+    "lt_addr_1": "D No 11-3-136, 11-3-136(1,3-19), NH 169A,",
+    "lt_addr_2": "Bappanadu, Mulki, Udupi Taluk & District - 576 101, Karnataka",
+    "lt_contact": "E Mail ID: jayalaxmisilks@gmail.com     Mobile No: +91 8861844322",
+    "lt_cin": "CIN: U47711KA2026PTC217940",
+    "lt_salutation": "To whomsoever it may concern",
+    "lt_body_1": "We herewith Sending {parcels} parcel containing sum of {amount} to below address through",
+    "lt_body_2": "{through}.",
+    "lt_to": "To,",
+    "lt_ph": "Ph:",
+    "lt_closing": "Thanking You,",
+    "lt_from_to": "To",
+    "lt_from_from": "FROM",
+    "lt_from_1": "JAYALAXMI SILKS PVT LTD",
+    "lt_from_2": "BANNANJE",
+    "lt_from_3": "UDUPI - 576101",
+    "lt_from_4": "MOB - 8861844322",
+}
+LOOK_DEFAULTS = {
+    "lf_font": "original",        # 'original' = Arial + Times New Roman exactly as in the Word macros
+    "lf_size_out": "10",          # base size of the Outward letter body text (other sizes scale with it)
+    "lf_size_from": "18",         # base size of the From letter receiver text
+    "lf_weight_out": "bold",
+    "lf_weight_from": "bold",
+    "lf_color_out": "#808080",
+    "lf_color_from": "#000000",
+}
+LETTER_DEFAULTS.update(LOOK_DEFAULTS)
+FONT_CHOICES = {
+    "original": "Original (Arial + Times New Roman)",
+    "Arial, Helvetica, sans-serif": "Arial",
+    "Times New Roman, Times, serif": "Times New Roman",
+    "Courier New, monospace": "Courier New",
+}
+LETTER_OPTIONAL = {"lt_salutation", "lt_closing", "lt_from_4", "lt_body_2"}  # may be left empty to drop the line
 DEFAULT_SETTINGS.update(FORMAT_DEFAULTS)
+DEFAULT_SETTINGS.update(LETTER_DEFAULTS)
 
 DATE_FORMATS = {
     "%d/%m/%Y": "DD/MM/YYYY",

@@ -1,19 +1,10 @@
 {% extends "base.html" %}{% block body %}
-<form method="post" class="card mb-4"><div class="card-h">Company information</div><div class="p-4 row g-3">
-  <div class="col-12"><label class="form-label">Company name</label><input class="form-control" name="company_name" value="{{ s.company_name }}" required></div>
-  <div class="col-md-6"><label class="form-label">Address line 1</label><input class="form-control" name="company_address_1" value="{{ s.company_address_1 }}"></div>
-  <div class="col-md-6"><label class="form-label">Address line 2</label><input class="form-control" name="company_address_2" value="{{ s.company_address_2 }}"></div>
-  <div class="col-md-4"><label class="form-label">Email</label><input class="form-control" name="company_email" value="{{ s.company_email }}"></div>
-  <div class="col-md-4"><label class="form-label">Mobile</label><input class="form-control" name="company_mobile" value="{{ s.company_mobile }}"></div>
-  <div class="col-md-4"><label class="form-label">CIN</label><input class="form-control" name="company_cin" value="{{ s.company_cin }}"></div>
-  <div class="col-12"><hr class="my-1"><div class="fw-semibold mt-2">From-letter sender block</div></div>
-  {% for i in range(1,5) %}<div class="col-md-6"><label class="form-label">Line {{ i }}</label><input class="form-control" name="from_line_{{ i }}" value="{{ s['from_line_' ~ i] }}"></div>{% endfor %}
+<form method="post" class="card mb-4"><div class="card-h">Settings</div><div class="p-4 row g-3">
   <div class="col-12"><hr class="my-1"><div class="fw-semibold mt-2">Output</div></div>
   <div class="col-md-4"><label class="form-label">Date format</label><select class="form-select" name="date_format">
     {% for k,v in formats.items() %}<option value="{{ k }}" {{ 'selected' if s.date_format==k }}>{{ v }}</option>{% endfor %}</select></div>
   <div class="col-md-3"><label class="form-label">Paper size</label><select class="form-select" name="paper_size"><option>A4</option></select></div>
   <div class="col-md-4"><label class="form-label">Default number of parcels</label><input type="number" min="1" class="form-control" name="default_parcels" value="{{ s.default_parcels }}"><div class="hint">Used when the E-Way Bill has no parcel count.</div></div>
-  <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="show_ewb_in_outward" id="se" {{ 'checked' if s.show_ewb_in_outward=='1' }}><label class="form-check-label" for="se">Show E-Way Bill number in the Outward Letter</label></div></div>
   <div class="col-12 text-end"><button class="btn btn-navy px-4">Save settings</button></div>
 </div></form>
 

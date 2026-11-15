@@ -5,21 +5,16 @@
   <div class="d-flex flex-wrap gap-2">
     <button class="btn btn-navy" data-print="outward"><i class="bi bi-printer me-1"></i>Print Outward Letter</button>
     <button class="btn btn-navy" data-print="from"><i class="bi bi-printer me-1"></i>Print From Letter</button>
-    <button class="btn btn-gold" data-print="both"><i class="bi bi-printer me-1"></i>Print Both</button>
+    <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-1"></i>Print All 3</a>
+    <button class="btn btn-navy" data-print="both"><i class="bi bi-printer me-1"></i>Print Both</button>
     <div class="btn-group"><button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Download PDF</button>
       <ul class="dropdown-menu dropdown-menu-end">
         <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
         <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li></ul></div>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
   </div>
 </div>
-{% if warnings %}<div class="alert alert-warning no-print"><div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Please check before printing</div>
-  <ul class="mb-0 ps-3">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
-<form method="post" action="{{ url_for('set_mobile', doc_id=doc.id) }}" class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
-  <label class="form-label mb-0 text-secondary"><i class="bi bi-telephone me-1"></i>Receiver mobile (optional)</label>
-  <input name="mobile" value="{{ mobile }}" class="form-control" style="width:260px" inputmode="tel" placeholder="9845100490 or 9845100490 / 6362226302">
-  <button class="btn btn-outline-secondary">{{ 'Update' if mobile else 'Add to letters' }}</button>
-</form>
 <div id="printMsg" class="alert alert-info py-2 d-none no-print"></div>
 <div class="row g-3">
   {% for title, html in [('Outward Letter', doc.outward_html), ('From Letter', doc.from_html)] %}
