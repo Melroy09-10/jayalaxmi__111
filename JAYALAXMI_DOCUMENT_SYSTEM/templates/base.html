@@ -8,18 +8,17 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sheet.css') }}">
 </head><body>
 <aside class="sidebar">
-  <div class="brand"><b>JAYALAXMI SILKS</b><span>Document System</span></div>
+  <div class="brand"><div class="mono">J</div><div><b>JAYALAXMI SILKS</b><span>Document System</span></div></div>
+  <div class="nav-label">Menu</div>
   <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active=='dashboard' }}"><i class="bi bi-grid-1x2"></i>Dashboard</a>
   <a href="{{ url_for('letter_format') }}" class="{{ 'active' if active=='format' }}"><i class="bi bi-layout-text-window"></i>Letter Format</a>
   <a href="{{ url_for('settings') }}" class="{{ 'active' if active=='settings' }}"><i class="bi bi-gear"></i>Settings</a>
-  <div class="foot">{% if auth_on %}<a href="{{ url_for('logout') }}" style="padding:0;margin:0 0 8px"><i class="bi bi-box-arrow-left"></i>Log out</a>{% else %}Runs locally on this computer.<br>No data leaves this PC.{% endif %}</div>
+  <div class="foot">{% if auth_on %}<a href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-left"></i>Log out</a>{% else %}Runs locally on this computer.<br>No data leaves this PC.{% endif %}</div>
 </aside>
 <div class="main">
   <header class="topbar">
     <div><div class="t1">{{ co.company_name }}</div><div class="t2">Document Management System</div></div>
-    <div class="d-flex align-items-center gap-3"><span class="t2">{{ today }}</span>
-      <a href="{{ url_for('letter_format') }}" class="{{ 'active' if active=='format' }}"><i class="bi bi-layout-text-window"></i>Letter Format</a>
-  <a href="{{ url_for('settings') }}" class="text-secondary fs-5" title="Settings"><i class="bi bi-gear"></i></a></div>
+    <span class="date"><i class="bi bi-calendar3 me-2"></i>{{ today }}</span>
   </header>
   <main class="content">
     {% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}

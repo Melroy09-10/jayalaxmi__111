@@ -1,24 +1,37 @@
 {% extends "base.html" %}{% block body %}
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
-  <div><h5 class="mb-0">{{ doc.receiver_name }}</h5>
-    <div class="text-secondary small">{{ doc.parcels }} parcel(s) · {{ doc.invoice_value|inr }}{% if doc.ewb_no %} · E-Way Bill {{ doc.ewb_no }}{% endif %} · {{ doc.created_at }}</div></div>
-  <div class="d-flex flex-wrap gap-2">
-    <button class="btn btn-navy" data-print="outward"><i class="bi bi-printer me-1"></i>Print Outward Letter</button>
-    <button class="btn btn-navy" data-print="from"><i class="bi bi-printer me-1"></i>Print From Letter</button>
-    <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-1"></i>Print All 3</a>
-    <button class="btn btn-navy" data-print="both"><i class="bi bi-printer me-1"></i>Print Both</button>
-    <div class="btn-group"><button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Download PDF</button>
-      <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
+<div class="stepper no-print">
+  <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
+  <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Confirm details</div><div class="bar"></div>
+  <div class="dot on"><i>3</i>Print</div>
+</div>
+<div class="page-head no-print">
+  <div class="doc-title">
+    <div><h5>{{ doc.receiver_name }}</h5>
+      <div class="chips">
+        <span class="chip"><i class="bi bi-box-seam"></i>{{ doc.parcels }} parcel(s)</span>
+        <span class="chip"><i class="bi bi-currency-rupee"></i>{{ doc.invoice_value|inr }}</span>
+        {% if doc.ewb_no %}<span class="chip"><i class="bi bi-file-earmark-text"></i>E-Way Bill {{ doc.ewb_no }}</span>{% endif %}
+        <span class="chip"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
+      </div></div>
+    <div class="toolbar">
+      <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All 3</a>
+      <span class="sep"></span>
+      <button class="btn btn-ghost" data-print="from"><i class="bi bi-printer me-1"></i>From</button>
+      <button class="btn btn-ghost" data-print="outward"><i class="bi bi-printer me-1"></i>Outward</button>
+      <button class="btn btn-ghost" data-print="both"><i class="bi bi-printer me-1"></i>Both letters</button>
+      <div class="btn-group"><button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>PDF</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
+    </div>
   </div>
 </div>
 <div id="printMsg" class="alert alert-info py-2 d-none no-print"></div>
 <div class="row g-3">
-  {% for title, html in [('Outward Letter', doc.outward_html), ('From Letter', doc.from_html)] %}
-  <div class="col-xl-6"><div class="small fw-semibold text-secondary mb-2">{{ title }}</div>
+  {% for title, html in [('From Letter', doc.from_html), ('Outward Letter', doc.outward_html)] %}
+  <div class="col-xl-6"><div class="paper-label no-print"><i class="bi bi-file-earmark-richtext"></i>{{ title }}</div>
     <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div>
   {% endfor %}
 </div>

@@ -256,7 +256,7 @@ def complete_upload(upload_id):
     ORDER = ["consignee_name", "consignee_address", "consignee_mobile", "parcels", "invoice_value", "through"]
     always = {"consignee_mobile", "parcels", "invoice_value", "through"}
     missing = [k for k in ORDER if k in always or k in auto["missing"]]
-    defaults = {"parcels": auto["parcels"], "invoice_value": auto["invoice_value"],
+    defaults = {"parcels": auto["parcels"], "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
                 "consignee_mobile": auto["consignee_mobile"], "through": auto["through"]}
     errors, answers = {}, {}
     if request.method == "POST":

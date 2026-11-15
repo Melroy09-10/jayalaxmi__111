@@ -1,21 +1,32 @@
 {% extends "base.html" %}{% block body %}
-<div class="mx-auto" style="max-width:620px">
-  <h5 class="mb-1"><i class="bi bi-pencil-square me-1"></i>Enter details</h5>
-  <form method="post" class="card card-body">
+<div class="mx-auto" style="max-width:680px">
+  <div class="stepper">
+    <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
+    <div class="dot on"><i>2</i>Confirm details</div><div class="bar"></div>
+    <div class="dot"><i>3</i>Print</div>
+  </div>
+  <div class="page-head"><h5>Enter details</h5>
+    <div class="sub">{% if up.ewb_no %}E-Way Bill {{ up.ewb_no }} · {% endif %}Check the details below and fill in anything that is missing.</div></div>
+  <form method="post" class="card">
+    <div class="p-4 row g-3">
     {% for k in missing %}
-    <div class="mb-3">
-      <label class="form-label fw-semibold" for="f_{{ k }}">{{ labels[k] }}</label>
-      {% if k == 'consignee_address' %}
-        <textarea id="f_{{ k }}" name="{{ k }}" rows="3" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if loop.first %}autofocus{% endif %}>{{ values.get(k, '') }}</textarea>
-      {% else %}
-        <input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if k == 'invoice_value' %}inputmode="decimal"{% endif %}{% if k == 'consignee_mobile' %}inputmode="tel" placeholder="1 or 2 numbers, 10 digits each: 9845100490, 6362226302"{% endif %} {% if loop.first %}autofocus{% endif %}>
-      {% endif %}
-      {% if errors.get(k) %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}
-    </div>
+      <div class="{{ 'col-12' if k in ('consignee_name','consignee_address','through') else 'col-md-6' }}">
+        <label class="form-label" for="f_{{ k }}">{{ labels[k] }}</label>
+        {% if k == 'consignee_address' %}
+          <textarea id="f_{{ k }}" name="{{ k }}" rows="3" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if loop.first %}autofocus{% endif %}>{{ values.get(k, '') }}</textarea>
+        {% elif k == 'invoice_value' %}
+          <div class="input-group"><span class="input-group-text">Rs.</span><input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" inputmode="decimal">{% if errors.get(k) %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}</div>
+        {% else %}
+          <input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if k == 'consignee_mobile' %}inputmode="tel" placeholder="9845100490, 6362226302"{% elif k == 'parcels' %}inputmode="numeric"{% endif %} {% if loop.first %}autofocus{% endif %}>
+        {% endif %}
+        {% if k == 'consignee_mobile' %}<div class="hint">1 or 2 numbers, 10 digits each. Optional.</div>{% endif %}
+        {% if errors.get(k) and k != 'invoice_value' %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}
+      </div>
     {% endfor %}
-    <div class="d-flex gap-2">
-      <button class="btn btn-gold">Create letters</button>
-      <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">Cancel</a>
+    </div>
+    <div class="p-3 px-4 border-top d-flex justify-content-between align-items-center" style="background:#FAFBFC;border-radius:0 0 var(--radius) var(--radius)">
+      <a class="btn btn-ghost" href="{{ url_for('dashboard') }}"><i class="bi bi-arrow-left me-1"></i>Cancel</a>
+      <button class="btn btn-gold px-4">Create letters<i class="bi bi-arrow-right ms-2"></i></button>
     </div>
   </form>
 </div>

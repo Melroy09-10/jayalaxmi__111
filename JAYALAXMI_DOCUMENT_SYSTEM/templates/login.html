@@ -4,9 +4,9 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons.min.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
-</head><body class="d-flex align-items-center justify-content-center" style="min-height:100vh">
-<form method="post" class="card p-4" style="width:360px;max-width:92vw">
-  <div class="text-center mb-3"><div class="fw-bold" style="color:var(--navy);letter-spacing:.04em">JAYALAXMI SILKS</div>
+</head><body class="d-flex align-items-center justify-content-center login-bg">
+<form method="post" class="card login-card">
+  <div class="text-center mb-3"><div class="brand justify-content-center border-0 pb-0 mb-1"><div class="mono">J</div></div><div class="fw-bold mt-2" style="color:var(--navy);letter-spacing:.06em">JAYALAXMI SILKS</div>
     <div class="small" style="color:var(--gold);letter-spacing:.08em;text-transform:uppercase">Document System</div></div>
   {% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}<div class="alert alert-{{ cat }} py-2">{{ m }}</div>{% endfor %}{% endwith %}
   <label class="form-label">Password</label>
