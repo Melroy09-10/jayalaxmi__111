@@ -15,6 +15,7 @@
       </div></div>
     <div class="toolbar">
       <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All 3</a>
+      <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit letter</a>
       <span class="sep"></span>
       <button class="btn btn-ghost" data-print="from"><i class="bi bi-printer me-1"></i>From</button>
       <button class="btn btn-ghost" data-print="outward"><i class="bi bi-printer me-1"></i>Outward</button>

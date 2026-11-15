@@ -145,8 +145,8 @@ def safe_child(folder, name):
     return p
 
 
-def build_documents(data, when=None):
-    settings = db.get_settings()
+def build_documents(data, when=None, over=None):
+    settings = {**db.get_settings(), **(over or data.get("lt_over") or {})}
     ctx = letters.build_context(data, settings, when)
     return ctx, letters.render_outward(ctx), letters.render_from(ctx)
 
@@ -413,6 +413,49 @@ def fragments_for(doc, which):
     if which == "both":
         return [doc["outward_html"], doc["from_html"]]
     abort(404)
+
+
+@app.route("/document/<int:doc_id>/format", methods=["GET", "POST"])
+def edit_document_format(doc_id):
+    """Edit the look and wording of this one document's letters, with a live preview of its real data.
+    Saving regenerates just this document; optionally also makes it the default for new letters."""
+    doc = load_doc(doc_id)
+    data = {k: v for k, v in json.loads(doc["data_json"]).items() if k != "ctx"}
+    snapshot = json.loads(doc["data_json"]).get("ctx", {}).get("lt") or {}
+    when = datetime.fromisoformat(doc["created_at"])
+    if request.method == "POST":
+        if request.form.get("action") == "reset":
+            over = dict(config.LETTER_DEFAULTS)
+        else:
+            over = letters.clean_letter(request.form)
+        data["lt_over"] = over
+        ctx, outward_html, from_html = build_documents(data, when, over)
+        try:
+            with db.connect() as c:
+                c.execute("""UPDATE documents SET data_json=?,outward_html=?,from_html=?,
+                             updated_at=datetime('now','localtime') WHERE id=?""",
+                          (json.dumps({**data, "ctx": ctx}), outward_html, from_html, doc_id))
+        except (ValueError, sqlite3.Error, OSError) as e:
+            flash(f"Could not update the letters: {e}", "danger")
+            return redirect(url_for("edit_document_format", doc_id=doc_id))
+        if request.form.get("as_default") and request.form.get("action") != "reset":
+            db.save_settings(over)
+        flash("Letters updated." + (" Also saved as the default for new letters." if request.form.get("as_default") and request.form.get("action") != "reset" else ""), "success")
+        return redirect(url_for("view_document", doc_id=doc_id))
+    current = {**db.get_settings(), **snapshot, **(data.get("lt_over") or {})}
+    vals = letters.clean_letter({k: current.get(k) for k in config.LETTER_DEFAULTS})
+    return render_template("format.html", f=vals, fonts=config.FONT_CHOICES, active="dashboard", doc=doc,
+                           preview_url=url_for("document_format_preview", doc_id=doc_id))
+
+
+@app.route("/document/<int:doc_id>/format/preview", methods=["POST"])
+def document_format_preview(doc_id):
+    doc = load_doc(doc_id)
+    data = {k: v for k, v in json.loads(doc["data_json"]).items() if k != "ctx"}
+    over = letters.clean_letter(request.form)
+    _, outward_html, from_html = build_documents(data, datetime.fromisoformat(doc["created_at"]), over)
+    return {"outward": outward_html, "from": from_html}
+
 
 
 @app.route("/document/<int:doc_id>/print/<which>")

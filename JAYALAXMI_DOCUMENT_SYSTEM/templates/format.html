@@ -1,7 +1,10 @@
 {% extends "base.html" %}{% block body %}
 <div class="page-head">
-  <div><h5>Letter Format</h5>
-    <div class="sub">Edit the font, size, bold and wording of the Outward Letter and the From Letter. The preview updates as you type.</div></div>
+  {% if doc %}<a class="btn btn-ghost btn-sm mb-3" href="{{ url_for('view_document', doc_id=doc.id) }}"><i class="bi bi-arrow-left me-1"></i>Back to letters</a>
+  <div><h5>Edit letter &middot; {{ doc.receiver_name }}</h5>
+    <div class="sub">Change the font, size, bold or wording for this letter only. The preview updates as you type.</div></div>
+  {% else %}<div><h5>Letter Format</h5>
+    <div class="sub">Edit the font, size, bold and wording of the Outward Letter and the From Letter. The preview updates as you type.</div></div>{% endif %}
 </div>
 <div class="row g-3">
   <div class="col-xl-5">
@@ -42,9 +45,12 @@
         <div class="col-12"><label class="form-label">Sender line 3</label><input class="form-control" name="lt_from_3" value="{{ f.lt_from_3 }}"></div>
         <div class="col-12"><label class="form-label">Sender line 4</label><input class="form-control" name="lt_from_4" value="{{ f.lt_from_4 }}"><div class="hint">Leave empty to remove it.</div></div>
       </div>
-      <div class="p-3 border-top d-flex justify-content-between">
-        <button class="btn btn-outline-secondary" name="action" value="reset" onclick="return confirm('Reset the letter format to the original?')">Reset to original</button>
-        <button class="btn btn-gold px-4" name="action" value="save"><i class="bi bi-check2 me-1"></i>Save format</button>
+      <div class="p-3 border-top" style="background:#FAFBFC;border-radius:0 0 var(--radius) var(--radius)">
+        {% if doc %}<div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="as_default" id="asDef"><label class="form-check-label" for="asDef">Also use this as the default for new letters</label></div>{% endif %}
+        <div class="d-flex justify-content-between">
+          <button class="btn btn-ghost" name="action" value="reset" onclick="return confirm('Reset to the original format?')">Reset to original</button>
+          <button class="btn btn-gold px-4" name="action" value="save"><i class="bi bi-check2 me-1"></i>{{ 'Save changes to this letter' if doc else 'Save format' }}</button>
+        </div>
       </div>
     </form>
   </div>
@@ -71,7 +77,7 @@ function fit() {
 }
 let timer = null;
 async function refresh() {
-  const r = await fetch('{{ url_for("format_preview") }}', { method: 'POST', body: new FormData(form) });
+  const r = await fetch('{{ preview_url or url_for("format_preview") }}', { method: 'POST', body: new FormData(form) });
   const j = await r.json();
   document.getElementById('pvOut').innerHTML = j.outward;
   document.getElementById('pvFrom').innerHTML = j.from;
