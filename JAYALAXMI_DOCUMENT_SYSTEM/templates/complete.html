@@ -2,7 +2,7 @@
 <div class="mx-auto" style="max-width:760px">
   <div class="stepper">
     <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
-    <div class="dot on"><i>2</i>Confirm details</div><div class="bar"></div>
+    <div class="dot on"><i>2</i>Confirm Details</div><div class="bar"></div>
     <div class="dot"><i>3</i>Print</div>
   </div>
   <div class="page-head"><h5>Enter details</h5>
@@ -35,6 +35,7 @@
           <input id="f_amount" name="invoice_value" value="{{ values.invoice_value }}" inputmode="decimal" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
           {% if errors.invoice_value %}<div class="invalid-feedback">{{ errors.invoice_value }}</div>{% endif %}</div>
         {% if bills|length > 1 %}<div class="hint">Sum of all E-Way Bills.</div>{% endif %}
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_invoice_value" name="skip_invoice_value" value="1" data-for="invoice_value"{% if 'invoice_value' in skips %} checked{% endif %}><label class="form-check-label small" for="s_invoice_value">Not needed</label></div>
       </div>
       <div class="col-md-4">
         <label class="form-label" for="f_date">Date</label>
@@ -43,18 +44,22 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="f_through">Address through</label>
-        <input id="f_through" name="through" value="{{ values.through }}" class="form-control">
-        <div class="hint">Transport details from the E-Way Bill. Optional.</div>
+        <input id="f_through" name="through" value="{{ values.through }}" class="form-control{% if errors.through %} is-invalid{% endif %}">
+        {% if errors.through %}<div class="invalid-feedback">{{ errors.through }}</div>{% endif %}
+        <div class="hint">Transport details from the E-Way Bill.</div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_through" name="skip_through" value="1" data-for="through"{% if 'through' in skips %} checked{% endif %}><label class="form-check-label small" for="s_through">Not needed</label></div>
       </div>
       <div class="col-12">
         <label class="form-label" for="f_name">Party name</label>
         <input id="f_name" name="consignee_name" value="{{ values.consignee_name }}" class="form-control{% if errors.consignee_name %} is-invalid{% endif %}">
         {% if errors.consignee_name %}<div class="invalid-feedback">{{ errors.consignee_name }}</div>{% endif %}
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_consignee_name" name="skip_consignee_name" value="1" data-for="consignee_name"{% if 'consignee_name' in skips %} checked{% endif %}><label class="form-check-label small" for="s_consignee_name">Not needed</label></div>
       </div>
       <div class="col-12">
         <label class="form-label" for="f_address">Party address</label>
         <textarea id="f_address" name="consignee_address" rows="3" class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
         {% if errors.consignee_address %}<div class="invalid-feedback">{{ errors.consignee_address }}</div>{% endif %}
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_consignee_address" name="skip_consignee_address" value="1" data-for="consignee_address"{% if 'consignee_address' in skips %} checked{% endif %}><label class="form-check-label small" for="s_consignee_address">Not needed</label></div>
       </div>
       <div class="col-12">
         <label class="form-label">Phone numbers</label>
@@ -66,7 +71,8 @@
           {% endfor %}
         </div>
         <button type="button" class="btn btn-ghost btn-sm" id="addPhone"><i class="bi bi-plus-lg me-1"></i>Add phone number</button>
-        <div class="hint">Add as many as needed. Each must have exactly 10 digits. Optional.</div>
+        <div class="hint">Add as many as needed. Each must have exactly 10 digits.</div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_phones" name="skip_phones" value="1" data-for="phones"{% if 'phones' in skips %} checked{% endif %}><label class="form-check-label small" for="s_phones">Not needed</label></div>
         {% if errors.phones %}<div class="text-danger small mt-1">{{ errors.phones }}</div>{% endif %}
       </div>
     </div>
@@ -85,4 +91,7 @@ function row(v){const d=document.createElement('div');d.className='input-group m
 document.getElementById('addPhone').addEventListener('click',()=>row('').querySelector('input').focus());
 box.addEventListener('click',e=>{const b=e.target.closest('.rm');if(b)b.closest('.phone-row').remove()});
 box.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,10)});
+const fieldsOf={invoice_value:['#f_amount'],through:['#f_through'],consignee_name:['#f_name'],consignee_address:['#f_address'],phones:['#phones input','#addPhone','#phones .rm']};
+function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>document.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}
+document.querySelectorAll('.skip').forEach(cb=>{cb.addEventListener('change',()=>applySkip(cb));applySkip(cb)});
 </script>{% endblock %}

@@ -18,7 +18,7 @@
 <div class="main">
   <header class="topbar">
     <div><div class="t1">{{ co.company_name }}</div><div class="t2">Document Management System</div></div>
-    <span class="date"><i class="bi bi-calendar3 me-2"></i>{{ today }}</span>
+    <div class="right"><span class="date"><i class="bi bi-calendar3 me-2"></i>{{ today }}</span><span class="user"><i class="bi bi-person-fill"></i></span></div>
   </header>
   <main class="content">
     {% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}

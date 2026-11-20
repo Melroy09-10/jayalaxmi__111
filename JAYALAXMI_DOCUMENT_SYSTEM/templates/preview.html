@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block body %}
 <div class="stepper no-print">
   <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
-  <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Confirm details</div><div class="bar"></div>
+  <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Confirm Details</div><div class="bar"></div>
   <div class="dot on"><i>3</i>Print</div>
 </div>
 <div class="page-head no-print">
@@ -14,8 +14,9 @@
         <span class="chip"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
       </div></div>
     <div class="toolbar">
-      <span class="d-inline-flex align-items-center gap-1 small text-secondary">From <input type="number" id="nFrom" value="1" min="1" max="50" class="form-control form-control-sm" style="width:64px" title="Copies of the From letter"> Outward <input type="number" id="nOut" value="1" min="1" max="50" class="form-control form-control-sm" style="width:64px" title="Copies of the Outward letter"> copies</span>
-      <span class="sep"></span>
+      <span class="copies">From <select id="nFrom" class="form-select form-select-sm" title="Copies of the From letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select>
+        Outward <select id="nOut" class="form-select form-select-sm" title="Copies of the Outward letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select>
+        Copies <select id="nSets" class="form-select form-select-sm" title="Number of full sets">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></span>
       <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All</a>
       <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit letter</a>
       <span class="sep"></span>
@@ -33,9 +34,9 @@
 </div>
 <div id="printMsg" class="alert alert-info py-2 d-none no-print"></div>
 <div class="row g-3">
-  {% for title, html in [('From Letter', doc.from_html), ('Outward Letter', doc.outward_html)] %}
-  <div class="col-xl-6"><div class="paper-label no-print"><i class="bi bi-file-earmark-richtext"></i>{{ title }}</div>
-    <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div>
+  {% for title, html, which in [('From Letter', doc.from_html, 'from'), ('Outward Letter', doc.outward_html, 'outward')] %}
+  <div class="col-xl-6"><div class="paper-card"><div class="paper-label no-print"><i class="bi bi-file-earmark-text"></i>{{ title }}<a class="expand" target="_blank" href="{{ url_for('print_document', doc_id=doc.id, which=which) }}" title="Open full size"><i class="bi bi-arrows-angle-expand"></i></a></div>
+    <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div></div>
   {% endfor %}
 </div>
 <iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;visibility:hidden"></iframe>
@@ -47,9 +48,9 @@ function fit(){document.querySelectorAll('.paper-wrap').forEach(w=>{
   sh.style.transform='none';const full=sh.offsetWidth,avail=w.clientWidth-36,s=Math.min(1,avail/full);
   sh.style.transform='scale('+s+')';box.style.width=(full*s)+'px';box.style.height=(sh.offsetHeight*s)+'px'})}
 window.addEventListener('load',fit);window.addEventListener('resize',fit);
-const nFrom=document.getElementById('nFrom'),nOut=document.getElementById('nOut');
+const nFrom=document.getElementById('nFrom'),nOut=document.getElementById('nOut'),nSets=document.getElementById('nSets');
 function n(el){return Math.min(50,Math.max(1,parseInt(el.value)||1))}
-function copies(){return '&from_n='+n(nFrom)+'&out_n='+n(nOut)}
+function copies(){const k=n(nSets);return '&from_n='+Math.min(50,n(nFrom)*k)+'&out_n='+Math.min(50,n(nOut)*k)}
 document.querySelectorAll('a[href*="/pdf/"]').forEach(a=>{const base=a.getAttribute('href');
   a.addEventListener('click',()=>{a.href=base+(base.includes('?')?'':'?')+copies().replace(/^&/,base.includes('?')?'&':'')})});
 const frame=document.getElementById('printFrame'),msg=document.getElementById('printMsg');

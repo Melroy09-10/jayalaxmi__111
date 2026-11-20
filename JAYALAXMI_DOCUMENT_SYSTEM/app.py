@@ -317,6 +317,9 @@ def complete_uploads():
     return details_form(ids)
 
 
+SKIPPABLE = {"consignee_name", "consignee_address", "through", "invoice_value", "phones"}
+
+
 def details_form(ids):
     """Show everything read from the E-Way Bill(s) in one editable form before the letters are made."""
     ups = load_uploads(ids)
@@ -332,17 +335,24 @@ def details_form(ids):
         "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
         "through": auto["through"], "phones": phones,
     }
-    errors = {}
+    errors, skips = {}, set()
     if request.method == "POST":
         f = request.form
         clean = lambda k: " ".join(f.get(k, "").split())
+        # every field must be filled, unless the user ticks "Not needed" for it
+        skips = {k for k in SKIPPABLE if f.get("skip_" + k)}
         values.update(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
                       parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through"),
                       consignee_address="\n".join(l.strip() for l in f.get("consignee_address", "").splitlines() if l.strip()))
         values["phones"] = [p.strip() for p in f.getlist("phone") if p.strip()]
+        for k in skips:
+            values[k] = [] if k == "phones" else ""
         out = {}
-        for k, msg in (("consignee_name", "Please enter the party name."), ("consignee_address", "Please enter the party address.")):
-            if values[k]:
+        fill = "Please fill this in, or tick 'Not needed'."
+        for k, msg in (("consignee_name", fill), ("consignee_address", fill), ("through", fill)):
+            if k in skips:
+                out[k] = ""
+            elif values[k]:
                 out[k] = values[k]
             else:
                 errors[k] = msg
@@ -355,13 +365,17 @@ def details_form(ids):
             out["parcels"] = int(values["parcels"])
         else:
             errors["parcels"] = "Enter a whole number, e.g. 5"
-        try:
-            out["invoice_value"] = round(float(values["invoice_value"].replace(",", "")), 2)
-            if out["invoice_value"] <= 0:
-                raise ValueError
-        except ValueError:
-            errors["invoice_value"] = "Enter the amount as a number, e.g. 157710.00"
-        out["through"] = values["through"]
+        if "invoice_value" in skips:
+            out["invoice_value"] = ""
+        elif not values["invoice_value"]:
+            errors["invoice_value"] = fill
+        else:
+            try:
+                out["invoice_value"] = round(float(values["invoice_value"].replace(",", "")), 2)
+                if out["invoice_value"] <= 0:
+                    raise ValueError
+            except ValueError:
+                errors["invoice_value"] = "Enter the amount as a number, e.g. 157710.00"
         cleaned = []
         for p in values["phones"]:
             digits = re.sub(r"[\s\-()]", "", p)
@@ -370,11 +384,13 @@ def details_form(ids):
                 break
             if digits not in cleaned:
                 cleaned.append(digits)
+        if "phones" not in skips and not values["phones"]:
+            errors["phones"] = "Add a phone number, or tick 'Not needed'."
         out["consignee_mobile"] = ", ".join(cleaned)
         if not errors:
             auto.update(out)
             return finish_upload(ups, auto)
-    return render_template("complete.html", ups=ups, bills=bills, errors=errors, values=values, active="dashboard")
+    return render_template("complete.html", ups=ups, bills=bills, errors=errors, values=values, skips=skips, active="dashboard")
 
 
 def parse_bill_date(text):

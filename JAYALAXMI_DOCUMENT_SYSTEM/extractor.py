@@ -153,8 +153,8 @@ def city_of(text):
 
 def _gstin_and_name(value):
     m = re.search(GSTIN_RE, value or "")
-    if not m:
-        return "", _clean(value)
+    if not m:   # unregistered party: "URP, NAME" -> "NAME"
+        return "", _clean(re.sub(r"^\s*URP\s*[,&:-]\s*", "", value or "", flags=re.I))
     name = _clean(_strip_note((value[m.end():]).lstrip(" ,&-:")))
     return m.group(0), ("" if name.startswith("(") else name)
 
