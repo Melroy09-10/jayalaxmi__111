@@ -171,7 +171,11 @@ def extract(path):
     m = re.search(r"e-?way\s*bill\s*no\.?\s*[:\-]?\s*\n?\s*(\d{4}\s?\d{4}\s?\d{4})", flat, re.I)
     if m:
         f["ewb_no"] = m.group(1).replace(" ", "")
-    m = re.search(r"generated\s*date\s*[:\-]?\s*\n?\s*(" + DATE_RE + r")", flat, re.I)
+    if not f["ewb_no"]:   # Part A slip prints it as "Unique No:"
+        m = re.search(r"unique\s*no\.?\s*[:\-]?\s*\n?\s*(\d{4}\s?\d{4}\s?\d{4})", flat, re.I)
+        if m:
+            f["ewb_no"] = m.group(1).replace(" ", "")
+    m = re.search(r"(?:generated\s*date|e-?way\s*bill\s*date)\s*[:\-]?\s*\n?\s*(" + DATE_RE + r")", flat, re.I)
     if m:
         f["ewb_date"] = m.group(1)
 
@@ -202,16 +206,19 @@ def extract(path):
 
     # --- Invoice
     f["invoice_no"] = _label_value(lines, r"(?:Document|Doc\.?|Invoice)\s*(?:No\.?|Number)\s*:?", r"Document\s*Date")
-    m = re.search(r"(?:Document|Invoice)\s*Date\s*[:\-]?\s*\n?\s*(" + DATE_RE + r")", flat, re.I)
+    m = re.search(r"(?:Document|Invoice(?:\s*/\s*Challan)?)\s*Date\s*[:\-]?\s*\n?\s*(" + DATE_RE + r")", flat, re.I)
     if m:
         f["invoice_date"] = m.group(1)
     for lab in (r"Tot\.?\s*Inv\.?\s*Value\s*:?", r"Total\s*Invoice\s*Value\s*:?", r"Total\s*Value\s*:?",
-                r"Value\s*of\s*Goods\s*:?", r"Invoice\s*Value\s*:?"):
+                r"Value\s*of\s*Goods\s*(?:\([^)]*\))?\s*:?", r"Invoice\s*Value\s*:?"):
         val = _label_value(lines, lab)
         m = re.search(r"\d[\d,]*(?:\.\d+)?", val)
         if m:
             f["invoice_value"] = m.group(0).replace(",", "")
             break
+
+    if not f["ewb_date"]:   # the letter carries the document date when no E-Way Bill date is printed
+        f["ewb_date"] = f["invoice_date"]
 
     # --- Transport
     tr = _label_value(lines, r"Transporter\s*ID\s*(?:&|and)?\s*Name\s*:?")
@@ -225,6 +232,10 @@ def extract(path):
     else:
         f["transporter_name"] = _label_value(lines, r"Transporter\s*Name\s*:?")
         f["transporter_id"] = _label_value(lines, r"Transporter\s*ID\s*:?")
+    if not f["transporter_name"]:   # Part A slip: "Transporter:" then "06AAPCS9575E1ZR & DELHIVERY LIMITED"
+        tr = _label_value(lines, r"^\s*Transporter\s*:")
+        m = re.match(r"([0-9A-Z]{15})\s*[&,-]\s*(.*)", tr)
+        f["transporter_id"], f["transporter_name"] = (m.group(1), _clean(m.group(2))) if m else ("", _clean(tr))
     if not f["transporter_name"] or not f["transporter_name"].strip("& "):
         f["transporter_name"] = ""
     td = _label_value(lines, r"Transporter\s*Doc\.?\s*No\.?\s*(?:&|and)?\s*Date\s*:?")

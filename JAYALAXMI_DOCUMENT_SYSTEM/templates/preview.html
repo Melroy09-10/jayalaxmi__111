@@ -14,7 +14,9 @@
         <span class="chip"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
       </div></div>
     <div class="toolbar">
-      <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All 3</a>
+      <span class="d-inline-flex align-items-center gap-1 small text-secondary">From <input type="number" id="nFrom" value="1" min="1" max="50" class="form-control form-control-sm" style="width:64px" title="Copies of the From letter"> Outward <input type="number" id="nOut" value="1" min="1" max="50" class="form-control form-control-sm" style="width:64px" title="Copies of the Outward letter"> copies</span>
+      <span class="sep"></span>
+      <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All</a>
       <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit letter</a>
       <span class="sep"></span>
       <button class="btn btn-ghost" data-print="from"><i class="bi bi-printer me-1"></i>From</button>
@@ -45,11 +47,16 @@ function fit(){document.querySelectorAll('.paper-wrap').forEach(w=>{
   sh.style.transform='none';const full=sh.offsetWidth,avail=w.clientWidth-36,s=Math.min(1,avail/full);
   sh.style.transform='scale('+s+')';box.style.width=(full*s)+'px';box.style.height=(sh.offsetHeight*s)+'px'})}
 window.addEventListener('load',fit);window.addEventListener('resize',fit);
+const nFrom=document.getElementById('nFrom'),nOut=document.getElementById('nOut');
+function n(el){return Math.min(50,Math.max(1,parseInt(el.value)||1))}
+function copies(){return '&from_n='+n(nFrom)+'&out_n='+n(nOut)}
+document.querySelectorAll('a[href*="/pdf/"]').forEach(a=>{const base=a.getAttribute('href');
+  a.addEventListener('click',()=>{a.href=base+(base.includes('?')?'':'?')+copies().replace(/^&/,base.includes('?')?'&':'')})});
 const frame=document.getElementById('printFrame'),msg=document.getElementById('printMsg');
 let pending=null;
 document.querySelectorAll('[data-print]').forEach(b=>b.addEventListener('click',()=>{
   pending=b.dataset.print;msg.className='alert alert-info py-2 no-print';msg.textContent='Preparing print layout…';
-  frame.src='/document/{{ doc.id }}/print/'+pending+'?t='+Date.now();}));
+  frame.src='/document/{{ doc.id }}/print/'+pending+'?t='+Date.now()+copies();}));
 frame.addEventListener('load',()=>{
   if(!pending)return;
   const label={outward:'Outward Letter',from:'From Letter',both:'both letters'}[pending];pending=null;

@@ -189,7 +189,7 @@ def build_context(data, settings, when=None):
         "through": (data["through"] or "").upper(),
         "to_name": data["consignee_name"] or "________",
         "to_address": data["consignee_address"] or "________",
-        "to_mobile": (data.get("consignee_mobile") or "").replace(" / ", ", "),
+        "to_mobile": " / ".join(p.strip() for p in re.split(r"[/,;]+", data.get("consignee_mobile") or "") if p.strip()),
         "booking": data.get("booking") or "________",
         "to_name_out": (data["consignee_name"] or "").upper() + ",",
         "to_address_out": address_list((data["consignee_address"] or "").upper()),

@@ -28,7 +28,7 @@ import extractor
 import letters
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_BYTES
+app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_BYTES * 10  # several E-Way Bills per upload
 
 
 def _secret_key():
@@ -94,7 +94,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-MOBILE_OK = re.compile(r"^[6-9]\d{9}$")
+MOBILE_OK = re.compile(r"^\d{10}$")
 
 
 # --------------------------------------------------------------------------- helpers
@@ -115,14 +115,12 @@ def inject_globals():
 def clean_mobile(raw):
     """Return (one or more 10-digit mobiles joined as '9845100490 / 6362226302', error or None)."""
     parts = [p for p in re.split(r"[/,;]+", raw or "") if p.strip()]
-    if len(parts) > 2:
-        return "", "Enter at most 2 mobile numbers, each exactly 10 digits (separate two with /)."
     good = []
     for p in parts:
         digits = re.sub(r"[\s\-()]", "", p)
         digits = re.sub(r"^(\+?91|0)(?=\d{10}$)", "", digits)
         if not MOBILE_OK.match(digits):
-            return ", ".join(good), "Each mobile number must be exactly 10 digits. You can enter 1 or 2 numbers (separate with /)."
+            return ", ".join(good), "Each mobile number must be exactly 10 digits (separate several numbers with /)."
         good.append(digits)
     return ", ".join(good), None
 
@@ -170,60 +168,125 @@ def upload_error(msg):
     return redirect(url_for("dashboard"))
 
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    """Upload -> extract -> map into both letters -> preview. No data-entry step."""
-    f = request.files.get("pdf")
-    if not f or not f.filename:
-        return upload_error("Please choose an E-Way Bill PDF to upload.")
-    if not f.filename.lower().endswith(".pdf"):
-        return upload_error("Only PDF files can be uploaded.")
+def ingest_pdf(f):
+    """Validate, store and extract one uploaded E-Way Bill. Returns (upload_id, error message or None)."""
+    name = f.filename or "file"
+    if not name.lower().endswith(".pdf"):
+        return None, f"{name}: only PDF files can be uploaded."
     blob = f.read()
     if not blob.startswith(b"%PDF"):
-        return upload_error("This file is not a valid PDF.")
-    original = secure_filename(f.filename) or "ewaybill.pdf"
+        return None, f"{name}: this file is not a valid PDF."
+    original = secure_filename(name) or "ewaybill.pdf"
     stored = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}_{original}"
+    dest = config.UPLOAD_DIR / stored
     try:
-        dest = config.UPLOAD_DIR / stored
         dest.write_bytes(blob)
     except OSError as e:
-        return upload_error(f"Could not save the file ({e.strerror or e}). Check folder permissions.")
+        return None, f"{name}: could not save the file ({e.strerror or e}). Check folder permissions."
     try:
         result = extractor.extract(dest)
     except extractor.ExtractionError as e:
         dest.unlink(missing_ok=True)
-        return upload_error(str(e))
+        return None, f"{name}: {e}"
     except Exception as e:  # unexpected parser failure
         dest.unlink(missing_ok=True)
-        return upload_error(f"Unexpected error while reading the PDF: {e}")
-    ewb = result["fields"]["ewb_no"]
+        return None, f"{name}: unexpected error while reading the PDF: {e}"
     with db.connect() as c:
         cur = c.execute(
             "INSERT INTO uploads(original_name,stored_name,sha256,ewb_no,extracted_json) VALUES(?,?,?,?,?)",
-            (f.filename, stored, hashlib.sha256(blob).hexdigest(), ewb, json.dumps(result)))
-        up = c.execute("SELECT * FROM uploads WHERE id=?", (cur.lastrowid,)).fetchone()
-        dup = c.execute("SELECT id FROM documents WHERE ewb_no=? AND ewb_no<>'' LIMIT 1", (ewb,)).fetchone()
-    return redirect(url_for("complete_upload", upload_id=up["id"]))
+            (name, stored, hashlib.sha256(blob).hexdigest(), result["fields"]["ewb_no"], json.dumps(result)))
+    return cur.lastrowid, None
 
 
-def finish_upload(up, result, answers):
-    """Build the letters from the extracted data plus anything the user typed for missing details."""
-    data = auto_data(result)
-    for k, v in answers.items():
-        data[k] = v
-    data["warnings"] = result["warnings"] + data["warnings"]
-    if "parcels" in answers:
-        data["warnings"] = [w for w in data["warnings"] if "Parcel count" not in w]
-    if answers.get("consignee_mobile"):
-        data["warnings"] = [w for w in data["warnings"] if "mobile" not in w.lower()]
+@app.route("/upload", methods=["POST"])
+def upload():
+    """Upload one or more E-Way Bills -> extract each -> one combined details form."""
+    files = [f for f in request.files.getlist("pdf") if f and f.filename]
+    if not files:
+        return upload_error("Please choose at least one E-Way Bill PDF to upload.")
+    ids = []
+    for f in files:
+        up_id, err = ingest_pdf(f)
+        if err:
+            flash(err, "danger")
+        else:
+            ids.append(up_id)
+    if not ids:
+        return redirect(url_for("dashboard"))
+    if len(ids) > 1:
+        err = party_mismatch(load_uploads(ids))
+        if err:
+            flash(err, "danger")
+            return redirect(url_for("dashboard"))
+    if len(ids) == 1:
+        return redirect(url_for("complete_upload", upload_id=ids[0]))
+    return redirect(url_for("complete_uploads", ids=",".join(map(str, ids))))
+
+
+def load_uploads(ids):
     with db.connect() as c:
-        dup = c.execute("SELECT id FROM documents WHERE ewb_no=? AND ewb_no<>'' LIMIT 1", (up["ewb_no"],)).fetchone()
-    if dup:
-        data["warnings"].insert(0, f"Letters were already generated earlier for E-Way Bill {up['ewb_no']} "
-                                   f"(document #{dup['id']}).")
-    data.pop("missing", None)
+        rows = [c.execute("SELECT * FROM uploads WHERE id=?", (i,)).fetchone() for i in ids]
+    if not rows or any(r is None for r in rows):
+        abort(404)
+    return rows
+
+
+def merged_auto(ups):
+    """Combine the extracted details of several E-Way Bills into one set of letter data:
+    parcels and amounts are added up; date, party, transporter come from the first bill that has them;
+    phone numbers are collected without repeats. Also returns one summary row per bill."""
+    autos, bills = [], []
+    for up in ups:
+        a = auto_data(json.loads(up["extracted_json"]))
+        autos.append(a)
+        bills.append({"file": up["original_name"], "ewb_no": a["ewb_no"], "date": a["letter_date"],
+                      "party": a["consignee_name"], "parcels": a["parcels"], "value": a["invoice_value"]})
+    first = lambda k: next((a[k] for a in autos if a[k]), "")
+    phones = []
+    for a in autos:
+        for p in re.split(r"[/,;]+", a["consignee_mobile"]):
+            if p.strip() and p.strip() not in phones:
+                phones.append(p.strip())
+    amounts = [a["invoice_value"] for a in autos if a["invoice_value"] != ""]
+    warnings = []
+    for up, a in zip(ups, autos):
+        for w in json.loads(up["extracted_json"])["warnings"] + a["warnings"]:
+            w = f"{up['original_name']}: {w}" if len(ups) > 1 else w
+            if w not in warnings:
+                warnings.append(w)
+    data = {
+        "letter_date": first("letter_date"), "parcels": sum(a["parcels"] for a in autos),
+        "consignee_name": first("consignee_name"), "consignee_address": first("consignee_address"),
+        "consignee_mobile": ", ".join(phones), "booking": first("booking"), "through": first("through"),
+        "ewb_no": ", ".join(dict.fromkeys(a["ewb_no"] for a in autos if a["ewb_no"])),
+        "invoice_no": first("invoice_no"), "invoice_value": round(sum(amounts), 2) if amounts else "",
+        "warnings": warnings, "_address_from_place": any(a["_address_from_place"] for a in autos),
+    }
+    return data, phones, bills
+
+
+def party_mismatch(ups):
+    """Error text when the E-Way Bills do not all name exactly the same party, else None."""
+    names = [(up["original_name"], auto_data(json.loads(up["extracted_json"]))["consignee_name"]) for up in ups]
+    names = [(f, n) for f, n in names if n]
+    if len({" ".join(n.upper().split()) for _, n in names}) > 1:
+        return "Party names are different. Please check."
+    return None
+
+
+def finish_upload(ups, data):
+    """Build the letters from the (user-confirmed) merged data."""
+    data["warnings"] = [w for w in data["warnings"] if "Parcel count" not in w and "mobile" not in w.lower()]
+    with db.connect() as c:
+        for up in ups:
+            dup = up["ewb_no"] and c.execute("SELECT id FROM documents WHERE ewb_no LIKE ? LIMIT 1",
+                                             (f"%{up['ewb_no']}%",)).fetchone()
+            if dup:
+                data["warnings"].insert(0, f"Letters were already generated earlier for E-Way Bill {up['ewb_no']} "
+                                           f"(document #{dup['id']}).")
+                break
     try:
-        doc_id, warn = save_document(up, data)
+        doc_id, warn = save_document(ups, data)
     except (ValueError, sqlite3.Error, OSError) as e:
         return upload_error(f"Could not generate the letters: {e}")
     if warn:
@@ -231,63 +294,87 @@ def finish_upload(up, result, answers):
     return redirect(url_for("view_document", doc_id=doc_id))
 
 
-# details the letters cannot do without: key -> label shown when asking for it
-REQUIRED_FIELDS = {
-    "consignee_name": "Receiver name",
-    "consignee_address": "Receiver address",
-    "through": "Sending through (optional)",
-    "invoice_value": "Total amount (Rs.)",
-    "parcels": "Number of parcels",
-    "consignee_mobile": "Receiver mobile number",
-}
+def parse_form_date(text):
+    """'15/11/2026' (also - or . separators) -> datetime, or None."""
+    m = re.fullmatch(r"\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\s*", text or "")
+    try:
+        return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1))) if m else None
+    except ValueError:
+        return None
 
 
 @app.route("/upload/<int:upload_id>/complete", methods=["GET", "POST"])
 def complete_upload(upload_id):
-    """Ask for details the E-Way Bill did not contain, instead of printing blanks."""
-    with db.connect() as c:
-        up = c.execute("SELECT * FROM uploads WHERE id=?", (upload_id,)).fetchone()
-    if not up:
+    return details_form([upload_id])
+
+
+@app.route("/uploads/complete", methods=["GET", "POST"])
+def complete_uploads():
+    try:
+        ids = [int(x) for x in request.args.get("ids", "").split(",") if x.strip()]
+    except ValueError:
         abort(404)
-    result = json.loads(up["extracted_json"])
-    auto = auto_data(result)
-    # fixed order on the form; name/address only appear when the E-Way Bill lacked them,
-    # the rest are always shown (prefilled) so they can be confirmed or changed
-    ORDER = ["consignee_name", "consignee_address", "consignee_mobile", "parcels", "invoice_value", "through"]
-    always = {"consignee_mobile", "parcels", "invoice_value", "through"}
-    missing = [k for k in ORDER if k in always or k in auto["missing"]]
-    defaults = {"parcels": auto["parcels"], "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
-                "consignee_mobile": auto["consignee_mobile"], "through": auto["through"]}
-    errors, answers = {}, {}
+    return details_form(ids)
+
+
+def details_form(ids):
+    """Show everything read from the E-Way Bill(s) in one editable form before the letters are made."""
+    ups = load_uploads(ids)
+    err = party_mismatch(ups)
+    if err:
+        flash(err, "danger")
+        return redirect(url_for("dashboard"))
+    auto, phones, bills = merged_auto(ups)
+    d = datetime.strptime(auto["letter_date"], "%Y-%m-%d") if auto["letter_date"] else None
+    values = {
+        "consignee_name": auto["consignee_name"], "consignee_address": auto["consignee_address"],
+        "letter_date": d.strftime("%d/%m/%Y") if d else "", "parcels": auto["parcels"],
+        "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
+        "through": auto["through"], "phones": phones,
+    }
+    errors = {}
     if request.method == "POST":
-        for k in missing:
-            v = " ".join(request.form.get(k, "").split())
-            if k == "consignee_mobile":
-                answers[k], err = clean_mobile(v)
-                if err:
-                    errors[k] = err
-            elif k == "parcels":
-                if v.isdigit() and int(v) > 0:
-                    answers[k] = int(v)
-                else:
-                    errors[k] = "Enter a whole number, e.g. 2"
-            elif k == "through":
-                answers[k] = v
-            elif not v:
-                errors[k] = "Please enter this detail."
-            elif k == "invoice_value":
-                try:
-                    answers[k] = float(v.replace(",", ""))
-                    if answers[k] <= 0:
-                        raise ValueError
-                except ValueError:
-                    errors[k] = "Enter the amount as a number, e.g. 38851.00"
+        f = request.form
+        clean = lambda k: " ".join(f.get(k, "").split())
+        values.update(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
+                      parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through"),
+                      consignee_address="\n".join(l.strip() for l in f.get("consignee_address", "").splitlines() if l.strip()))
+        values["phones"] = [p.strip() for p in f.getlist("phone") if p.strip()]
+        out = {}
+        for k, msg in (("consignee_name", "Please enter the party name."), ("consignee_address", "Please enter the party address.")):
+            if values[k]:
+                out[k] = values[k]
             else:
-                answers[k] = v
+                errors[k] = msg
+        dt = parse_form_date(values["letter_date"])
+        if dt:
+            out["letter_date"] = dt.strftime("%Y-%m-%d")
+        else:
+            errors["letter_date"] = "Enter the date as DD/MM/YYYY, e.g. 15/11/2026"
+        if values["parcels"].isdigit() and int(values["parcels"]) > 0:
+            out["parcels"] = int(values["parcels"])
+        else:
+            errors["parcels"] = "Enter a whole number, e.g. 5"
+        try:
+            out["invoice_value"] = round(float(values["invoice_value"].replace(",", "")), 2)
+            if out["invoice_value"] <= 0:
+                raise ValueError
+        except ValueError:
+            errors["invoice_value"] = "Enter the amount as a number, e.g. 157710.00"
+        out["through"] = values["through"]
+        cleaned = []
+        for p in values["phones"]:
+            digits = re.sub(r"[\s\-()]", "", p)
+            if not MOBILE_OK.match(digits):
+                errors["phones"] = f"'{p}' is not valid. Each phone number must contain exactly 10 digits."
+                break
+            if digits not in cleaned:
+                cleaned.append(digits)
+        out["consignee_mobile"] = ", ".join(cleaned)
         if not errors:
-            return finish_upload(up, result, answers)
-    return render_template("complete.html", up=up, missing=missing, labels=REQUIRED_FIELDS,
-                           errors=errors, values=request.form if request.method == "POST" else defaults, active="dashboard")
+            auto.update(out)
+            return finish_upload(ups, auto)
+    return render_template("complete.html", ups=ups, bills=bills, errors=errors, values=values, active="dashboard")
 
 
 def parse_bill_date(text):
@@ -355,15 +442,18 @@ def ewb_of(fields):
     return fields.get("ewb_no", "")
 
 
-def save_document(up, data):
-    """Render both letters, store them and write PDFs. Returns (doc_id, warning)."""
+def save_document(ups, data):
+    """Render both letters and store them. ``ups`` are the uploaded E-Way Bills behind this document.
+    Returns (doc_id, warning)."""
+    up = ups[0]
+    data["upload_ids"] = [u["id"] for u in ups]
     ctx, outward_html, from_html = build_documents(data)
     snapshot = json.dumps({**data, "ctx": ctx})
     with db.connect() as c:
         cur = c.execute("""INSERT INTO documents(upload_id,ewb_no,receiver_name,invoice_value,parcels,
                            original_pdf,data_json,outward_html,from_html) VALUES(?,?,?,?,?,?,?,?,?)""",
                         (up["id"], data["ewb_no"], data["consignee_name"] or "(name not found)",
-                         data["invoice_value"] or None, int(data["parcels"]), up["original_name"],
+                         data["invoice_value"] or None, int(data["parcels"]), ", ".join(u["original_name"] for u in ups),
                          snapshot, outward_html, from_html))
         new_id = cur.lastrowid
     return new_id, None
@@ -405,13 +495,22 @@ def view_document(doc_id):
     return render_template("preview.html", doc=doc, warnings=warnings, mobile=mobile, active="dashboard")
 
 
+def copy_count(name):
+    """How many copies of a letter to print (1-50), from the ?from_n= / ?out_n= query values."""
+    try:
+        return min(50, max(1, int(request.args.get(name, 1))))
+    except ValueError:
+        return 1
+
+
 def fragments_for(doc, which):
+    n_from, n_out = copy_count("from_n"), copy_count("out_n")
     if which == "outward":
-        return [doc["outward_html"]]
+        return [doc["outward_html"]] * n_out
     if which == "from":
-        return [doc["from_html"]]
+        return [doc["from_html"]] * n_from
     if which == "both":
-        return [doc["outward_html"], doc["from_html"]]
+        return [doc["from_html"]] * n_from + [doc["outward_html"]] * n_out
     abort(404)
 
 
@@ -470,17 +569,21 @@ def pdf_document(doc_id, which):
     try:
         if which == "all":
             # print order: From letter, Outward letter, then the original E-Way Bill
-            parts = [letters.fragment_to_pdf(doc["from_html"]), letters.fragment_to_pdf(doc["outward_html"])]
-            with db.connect() as c:
-                up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (doc["upload_id"],)).fetchone()
-            original = safe_child(config.UPLOAD_DIR, up["stored_name"]) if up else None
-            if not original or not original.exists():
-                flash("The original E-Way Bill file is no longer available, so all three cannot be printed.", "danger")
-                return redirect(url_for("view_document", doc_id=doc_id))
-            parts.append(original.read_bytes())
+            parts = ([letters.fragment_to_pdf(doc["from_html"])] * copy_count("from_n")
+                     + [letters.fragment_to_pdf(doc["outward_html"])] * copy_count("out_n"))
+            ids = json.loads(doc["data_json"]).get("upload_ids") or [doc["upload_id"]]
+            for uid in ids:
+                with db.connect() as c:
+                    up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (uid,)).fetchone()
+                original = safe_child(config.UPLOAD_DIR, up["stored_name"]) if up else None
+                if not original or not original.exists():
+                    flash("An original E-Way Bill file is no longer available, so all of them cannot be printed.", "danger")
+                    return redirect(url_for("view_document", doc_id=doc_id))
+                parts.append(original.read_bytes())
             blob = letters.merge_pdfs(parts)
         else:
-            blob = letters.merge_pdfs([letters.fragment_to_pdf(f) for f in fragments_for(doc, which)])
+            pages = {}   # render each distinct letter once, then repeat it for the copies
+            blob = letters.merge_pdfs([pages.setdefault(f, letters.fragment_to_pdf(f)) for f in fragments_for(doc, which)])
     except ValueError as e:
         flash(str(e), "danger")
         return redirect(url_for("view_document", doc_id=doc_id))

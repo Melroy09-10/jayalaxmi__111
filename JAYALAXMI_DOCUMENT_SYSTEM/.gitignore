@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+venv/
+.env
+Customer_Records/
+Generated_Letters/
+Uploaded_PDFs/
+*.db
+*.sqlite
+*.sqlite3

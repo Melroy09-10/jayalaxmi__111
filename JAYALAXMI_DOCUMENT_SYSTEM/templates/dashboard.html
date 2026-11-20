@@ -2,32 +2,38 @@
 <div class="page-head"><h5>Dashboard</h5><div class="sub">Turn an E-Way Bill into print-ready letters in three quick steps.</div></div>
 <div class="card hero mb-4">
   <h5 class="mb-1">Create New Documents</h5>
-  <div class="text-secondary mb-4">Upload an E-Way Bill PDF. The details are read automatically and both letters are generated for you.</div>
+  <div class="text-secondary mb-4">Upload one or more E-Way Bill PDFs. The details are read automatically and both letters are generated for you.</div>
   <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" id="upForm">
-    <input type="file" name="pdf" accept="application/pdf,.pdf" class="d-none" id="pdfInput" required>
+    <input type="file" name="pdf" accept="application/pdf,.pdf" multiple class="d-none" id="pdfInput">
     <label class="dropzone d-block" id="drop" style="cursor:pointer" for="pdfInput">
       <span class="ico"><i class="bi bi-cloud-arrow-up"></i></span>
-      <div class="fw-semibold mt-3" id="fname" style="font-size:1.02rem">Click to choose, or drag your E-Way Bill PDF here</div>
-      <div class="hint">PDF only · up to 15 MB · processed on this computer</div>
+      <div class="fw-semibold mt-3" id="fname" style="font-size:1.02rem">Click to choose, or drag your E-Way Bill PDFs here</div>
+      <div class="hint">One or more PDFs · you can keep adding more · up to 15 MB each · processed on this computer</div>
     </label>
+    <ul class="list-unstyled mt-3 mb-0" id="fileList"></ul>
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
       <div class="hint m-0">{% if ocr %}<i class="bi bi-check-circle text-success"></i> OCR available for scanned PDFs.{% else %}<i class="bi bi-info-circle"></i> Scanned PDFs need Tesseract OCR (see README).{% endif %}</div>
-      <label for="pdfInput" class="btn btn-gold px-4 mb-0" id="upBtn"><i class="bi bi-upload me-2"></i>Upload E-Way Bill PDF</label>
+      <button type="submit" class="btn btn-gold px-4 mb-0 disabled" id="upBtn"><i class="bi bi-upload me-2"></i>Read E-Way Bills &amp; continue</button>
     </div>
   </form>
 </div>
 <div class="steps">
-  <div class="card step"><div class="no">1</div><div><b>Upload</b><span>Choose the E-Way Bill PDF from the portal.</span></div></div>
+  <div class="card step"><div class="no">1</div><div><b>Upload</b><span>Choose one or more E-Way Bill PDFs.</span></div></div>
   <div class="card step"><div class="no">2</div><div><b>Confirm details</b><span>Check the receiver, amount and parcels.</span></div></div>
   <div class="card step"><div class="no">3</div><div><b>Print</b><span>Print the From letter, Outward letter and E-Way Bill together.</span></div></div>
 </div>
 {% endblock %}
 {% block scripts %}<script>
-const inp=document.getElementById('pdfInput'),drop=document.getElementById('drop'),form=document.getElementById('upForm'),btn=document.getElementById('upBtn');
-function go(){if(!inp.files.length)return;document.getElementById('fname').textContent='Reading '+inp.files[0].name+' and generating letters…';
-  btn.classList.add('disabled');form.requestSubmit()}
-inp.addEventListener('change',go);
+const inp=document.getElementById('pdfInput'),drop=document.getElementById('drop'),form=document.getElementById('upForm'),btn=document.getElementById('upBtn'),list=document.getElementById('fileList');
+let dt=new DataTransfer();
+function render(){list.innerHTML='';[...dt.files].forEach((f,i)=>{const li=document.createElement('li');li.className='d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+  const n=document.createElement('span');n.textContent=(i+1)+'. '+f.name;const x=document.createElement('button');x.type='button';x.className='btn btn-ghost btn-sm';x.innerHTML='<i class="bi bi-x-lg"></i>';
+  x.onclick=()=>{const nd=new DataTransfer();[...dt.files].forEach((g,j)=>{if(j!==i)nd.items.add(g)});dt=nd;inp.files=dt.files;render()};
+  li.append(n,x);list.appendChild(li)});btn.classList.toggle('disabled',!dt.files.length)}
+function add(files){for(const f of files){if(!/\.pdf$/i.test(f.name))continue;if(![...dt.files].some(g=>g.name===f.name&&g.size===f.size))dt.items.add(f)}inp.files=dt.files;render()}
+inp.addEventListener('change',()=>add(inp.files));
+form.addEventListener('submit',e=>{if(!dt.files.length){e.preventDefault();return}document.getElementById('fname').textContent='Reading '+dt.files.length+' E-Way Bill(s)…';btn.classList.add('disabled')});
 ['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('drag')}));
 ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('drag')}));
-drop.addEventListener('drop',ev=>{if(ev.dataTransfer.files.length){inp.files=ev.dataTransfer.files;go()}});
+drop.addEventListener('drop',ev=>add(ev.dataTransfer.files));
 </script>{% endblock %}

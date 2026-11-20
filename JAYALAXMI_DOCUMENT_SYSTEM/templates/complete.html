@@ -1,28 +1,74 @@
 {% extends "base.html" %}{% block body %}
-<div class="mx-auto" style="max-width:680px">
+<div class="mx-auto" style="max-width:760px">
   <div class="stepper">
     <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
     <div class="dot on"><i>2</i>Confirm details</div><div class="bar"></div>
     <div class="dot"><i>3</i>Print</div>
   </div>
   <div class="page-head"><h5>Enter details</h5>
-    <div class="sub">{% if up.ewb_no %}E-Way Bill {{ up.ewb_no }} · {% endif %}Check the details below and fill in anything that is missing.</div></div>
-  <form method="post" class="card">
+    <div class="sub">{{ ups|length }} E-Way Bill{{ 's' if ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.</div></div>
+
+  <div class="card mb-3">
+    <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+      <thead><tr><th class="ps-3">E-Way Bill</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end pe-3">Amount</th></tr></thead>
+      <tbody>
+      {% for b in bills %}<tr>
+        <td class="ps-3">{{ b.ewb_no or b.file }}</td>
+        <td>{% if b.date %}{{ b.date[8:10] }}/{{ b.date[5:7] }}/{{ b.date[0:4] }}{% else %}-{% endif %}</td>
+        <td>{{ b.party or '-' }}</td>
+        <td class="text-end">{{ b.parcels }}</td>
+        <td class="text-end pe-3">{{ b.value|inr if b.value != '' else '-' }}</td></tr>
+      {% endfor %}
+      </tbody></table></div>
+  </div>
+
+  <form method="post" class="card" novalidate>
     <div class="p-4 row g-3">
-    {% for k in missing %}
-      <div class="{{ 'col-12' if k in ('consignee_name','consignee_address','through') else 'col-md-6' }}">
-        <label class="form-label" for="f_{{ k }}">{{ labels[k] }}</label>
-        {% if k == 'consignee_address' %}
-          <textarea id="f_{{ k }}" name="{{ k }}" rows="3" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if loop.first %}autofocus{% endif %}>{{ values.get(k, '') }}</textarea>
-        {% elif k == 'invoice_value' %}
-          <div class="input-group"><span class="input-group-text">Rs.</span><input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" inputmode="decimal">{% if errors.get(k) %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}</div>
-        {% else %}
-          <input id="f_{{ k }}" name="{{ k }}" value="{{ values.get(k, '') }}" class="form-control{% if errors.get(k) %} is-invalid{% endif %}" {% if k == 'consignee_mobile' %}inputmode="tel" placeholder="9845100490, 6362226302"{% elif k == 'parcels' %}inputmode="numeric"{% endif %} {% if loop.first %}autofocus{% endif %}>
-        {% endif %}
-        {% if k == 'consignee_mobile' %}<div class="hint">1 or 2 numbers, 10 digits each. Optional.</div>{% endif %}
-        {% if errors.get(k) and k != 'invoice_value' %}<div class="invalid-feedback">{{ errors[k] }}</div>{% endif %}
+      <div class="col-md-4">
+        <label class="form-label" for="f_parcels">Total parcels</label>
+        <input id="f_parcels" name="parcels" value="{{ values.parcels }}" inputmode="numeric" class="form-control{% if errors.parcels %} is-invalid{% endif %}">
+        {% if errors.parcels %}<div class="invalid-feedback">{{ errors.parcels }}</div>{% endif %}
       </div>
-    {% endfor %}
+      <div class="col-md-4">
+        <label class="form-label" for="f_amount">Total amount</label>
+        <div class="input-group"><span class="input-group-text">Rs.</span>
+          <input id="f_amount" name="invoice_value" value="{{ values.invoice_value }}" inputmode="decimal" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
+          {% if errors.invoice_value %}<div class="invalid-feedback">{{ errors.invoice_value }}</div>{% endif %}</div>
+        {% if bills|length > 1 %}<div class="hint">Sum of all E-Way Bills.</div>{% endif %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="f_date">Date</label>
+        <input id="f_date" name="letter_date" value="{{ values.letter_date }}" placeholder="DD/MM/YYYY" class="form-control{% if errors.letter_date %} is-invalid{% endif %}">
+        {% if errors.letter_date %}<div class="invalid-feedback">{{ errors.letter_date }}</div>{% endif %}
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="f_through">Address through</label>
+        <input id="f_through" name="through" value="{{ values.through }}" class="form-control">
+        <div class="hint">Transport details from the E-Way Bill. Optional.</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="f_name">Party name</label>
+        <input id="f_name" name="consignee_name" value="{{ values.consignee_name }}" class="form-control{% if errors.consignee_name %} is-invalid{% endif %}">
+        {% if errors.consignee_name %}<div class="invalid-feedback">{{ errors.consignee_name }}</div>{% endif %}
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="f_address">Party address</label>
+        <textarea id="f_address" name="consignee_address" rows="3" class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
+        {% if errors.consignee_address %}<div class="invalid-feedback">{{ errors.consignee_address }}</div>{% endif %}
+      </div>
+      <div class="col-12">
+        <label class="form-label">Phone numbers</label>
+        <div id="phones">
+          {% for p in values.phones %}
+          <div class="input-group mb-2 phone-row">
+            <input name="phone" value="{{ p }}" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control">
+            <button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button></div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addPhone"><i class="bi bi-plus-lg me-1"></i>Add phone number</button>
+        <div class="hint">Add as many as needed. Each must have exactly 10 digits. Optional.</div>
+        {% if errors.phones %}<div class="text-danger small mt-1">{{ errors.phones }}</div>{% endif %}
+      </div>
     </div>
     <div class="p-3 px-4 border-top d-flex justify-content-between align-items-center" style="background:#FAFBFC;border-radius:0 0 var(--radius) var(--radius)">
       <a class="btn btn-ghost" href="{{ url_for('dashboard') }}"><i class="bi bi-arrow-left me-1"></i>Cancel</a>
@@ -31,3 +77,12 @@
   </form>
 </div>
 {% endblock %}
+{% block scripts %}<script>
+const box=document.getElementById('phones');
+function row(v){const d=document.createElement('div');d.className='input-group mb-2 phone-row';
+  d.innerHTML='<input name="phone" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control"><button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button>';
+  d.querySelector('input').value=v||'';box.appendChild(d);return d}
+document.getElementById('addPhone').addEventListener('click',()=>row('').querySelector('input').focus());
+box.addEventListener('click',e=>{const b=e.target.closest('.rm');if(b)b.closest('.phone-row').remove()});
+box.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,10)});
+</script>{% endblock %}
