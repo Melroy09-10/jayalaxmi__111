@@ -176,7 +176,7 @@ def build_context(data, settings, when=None):
     sans, serif = ("Arial, Helvetica, sans-serif", "Times New Roman, Times, serif") if lt["lf_font"] == "original" \
         else (lt["lf_font"], lt["lf_font"])
     return {
-        "sz_out": {n: "%.1fpt" % (n * k_out) for n in (8, 9, 10, 12, 14)},
+        "sz_out": {n: "%.1fpt" % (n * k_out) for n in (8, 9, 10, 11, 12, 14)},
         "sz_from": {n: "%.1fpt" % (n * k_from) for n in (14, 16, 18)},
         "ff_sans": sans, "ff_serif": serif, "wt_out": lt["lf_weight_out"], "wt_from": lt["lf_weight_from"],
         "col_out": lt["lf_color_out"], "col_from": lt["lf_color_from"], "NB": "\u00a0",

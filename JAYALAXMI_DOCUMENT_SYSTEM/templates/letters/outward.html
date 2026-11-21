@@ -1,5 +1,5 @@
-{% macro P(cls, n, text, serif=False, mt=0, lh=1.35) -%}
-<p class="{{ cls }}" style="font-size:{{ sz_out[n] }};font-family:{{ ff_serif if serif else ff_sans }};font-weight:{{ wt_out }};color:{{ col_out }};margin:{{ mt }}pt 0 0 0;line-height:{{ lh }}">{{ text }}</p>
+{% macro P(cls, n, text, serif=False, mt=0, lh=1.35, wt=None) -%}
+<p class="{{ cls }}" style="font-size:{{ sz_out[n] }};font-family:{{ ff_serif if serif else ff_sans }};font-weight:{{ wt or wt_out }};color:{{ col_out }};margin:{{ mt }}pt 0 0 0;line-height:{{ lh }}">{{ text }}</p>
 {%- endmacro %}
 <div class="letter out">
   {{ P('hd', 14, lt.lt_company, True, 0, 1.3) }}
@@ -9,12 +9,12 @@
   {{ P('c', 8, lt.lt_cin, True) }}
   <hr style="border:0;border-top:1pt solid {{ col_out }};margin:9pt 0 0 0;height:0">
   {{ P('r', 8, 'Date: ' ~ date_text, False, 14) }}
-  {% if lt.lt_salutation %}{{ P('c', 9, lt.lt_salutation, False, 26) }}{% endif %}
-  {{ P('', 10, body_1, False, 26, 1.5) }}
-  {% if body_2 %}{{ P('', 10, body_2, False, 0, 1.5) }}{% endif %}
+  {% if lt.lt_salutation %}{{ P('c', 11, lt.lt_salutation, False, 26) }}{% endif %}
+  {{ P('', 10, body_1, False, 26, 1.5, 'normal') }}
+  {% if body_2 %}{{ P('', 10, body_2, False, 0, 1.5, 'normal') }}{% endif %}
   {{ P('to', 12, lt.lt_to, False, 34) }}
   {{ P('ind', 14, to_name_out, False, 8, 1.4) }}
   {% for line in to_address_out %}{{ P('ind', 14, line, False, 2, 1.4) }}{% endfor %}
   {% if to_mobile %}{{ P('ind', 14, lt.lt_ph ~ ' ' ~ to_mobile, False, 2, 1.4) }}{% endif %}
-  {% if lt.lt_closing %}{{ P('r', 10, lt.lt_closing, False, 56) }}{% endif %}
+  {% if lt.lt_closing %}{{ P('r', 10, lt.lt_closing, False, 72) }}{% endif %}
 </div>
