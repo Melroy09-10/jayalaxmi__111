@@ -16,5 +16,5 @@
   {{ P('ind', 14, to_name_out, False, 8, 1.4) }}
   {% for line in to_address_out %}{{ P('ind', 14, line, False, 2, 1.4) }}{% endfor %}
   {% if to_mobile %}{{ P('ind', 14, lt.lt_ph ~ ' ' ~ to_mobile, False, 2, 1.4) }}{% endif %}
-  {% if lt.lt_closing %}{{ P('r', 10, lt.lt_closing, False, 72) }}{% endif %}
+  {% if lt.lt_closing %}{{ P('r', 12, lt.lt_closing, False, 72) }}{% endif %}
 </div>

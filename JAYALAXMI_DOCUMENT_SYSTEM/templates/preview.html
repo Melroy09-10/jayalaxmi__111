@@ -32,14 +32,12 @@
     </div>
   </div>
 </div>
-<div id="printMsg" class="alert alert-info py-2 d-none no-print"></div>
 <div class="row g-3">
   {% for title, html, which in [('From Letter', doc.from_html, 'from'), ('Outward Letter', doc.outward_html, 'outward')] %}
   <div class="col-xl-6"><div class="paper-card"><div class="paper-label no-print"><i class="bi bi-file-earmark-text"></i>{{ title }}<a class="expand" target="_blank" href="{{ url_for('print_document', doc_id=doc.id, which=which) }}" title="Open full size"><i class="bi bi-arrows-angle-expand"></i></a></div>
     <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div></div>
   {% endfor %}
 </div>
-<iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;visibility:hidden"></iframe>
 {% endblock %}
 {% block scripts %}<script>
 // Scale the 210mm sheets to fit their column so the preview shows the whole page.
@@ -53,16 +51,7 @@ function n(el){return Math.min(50,Math.max(1,parseInt(el.value)||1))}
 function copies(){const k=n(nSets);return '&from_n='+Math.min(50,n(nFrom)*k)+'&out_n='+Math.min(50,n(nOut)*k)}
 document.querySelectorAll('a[href*="/pdf/"]').forEach(a=>{const base=a.getAttribute('href');
   a.addEventListener('click',()=>{a.href=base+(base.includes('?')?'':'?')+copies().replace(/^&/,base.includes('?')?'&':'')})});
-const frame=document.getElementById('printFrame'),msg=document.getElementById('printMsg');
-let pending=null;
 document.querySelectorAll('[data-print]').forEach(b=>b.addEventListener('click',()=>{
-  pending=b.dataset.print;msg.className='alert alert-info py-2 no-print';msg.textContent='Preparing print layout…';
-  frame.src='/document/{{ doc.id }}/print/'+pending+'?t='+Date.now()+copies();}));
-frame.addEventListener('load',()=>{
-  if(!pending)return;
-  const label={outward:'Outward Letter',from:'From Letter',both:'both letters'}[pending];pending=null;
-  try{frame.contentWindow.focus();frame.contentWindow.print();
-    msg.textContent='The print dialog was opened for '+label+'. Choose your printer there to finish printing.';
-  }catch(e){msg.className='alert alert-danger py-2 no-print';msg.textContent='The print dialog could not be opened: '+e.message}
-});
+  // Open the letter as a PDF in a new tab: the browser's PDF viewer prints without date/URL headers and footers.
+  window.open('/document/{{ doc.id }}/pdf/'+b.dataset.print+'?view=1'+copies(),'_blank');}));
 </script>{% endblock %}
