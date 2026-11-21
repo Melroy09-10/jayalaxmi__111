@@ -10,7 +10,7 @@
       <div class="chips">
         <span class="chip"><i class="bi bi-box-seam"></i>{{ doc.parcels }} parcel(s)</span>
         <span class="chip"><i class="bi bi-currency-rupee"></i>{{ doc.invoice_value|inr }}</span>
-        {% if doc.ewb_no %}<span class="chip"><i class="bi bi-file-earmark-text"></i>E-Way Bill {{ doc.ewb_no }}</span>{% endif %}
+        {% if doc_no %}<span class="chip"><i class="bi bi-file-earmark-text"></i>Doc No {{ doc_no }}</span>{% endif %}
         <span class="chip"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
       </div></div>
     <div class="toolbar">

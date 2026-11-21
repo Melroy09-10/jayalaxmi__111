@@ -239,7 +239,7 @@ def merged_auto(ups):
     for up in ups:
         a = auto_data(json.loads(up["extracted_json"]))
         autos.append(a)
-        bills.append({"file": up["original_name"], "ewb_no": a["ewb_no"], "date": a["letter_date"],
+        bills.append({"file": up["original_name"], "ewb_no": a["ewb_no"], "doc_no": a["doc_no"], "date": a["letter_date"],
                       "party": a["consignee_name"], "parcels": a["parcels"], "value": a["invoice_value"]})
     first = lambda k: next((a[k] for a in autos if a[k]), "")
     phones = []
@@ -259,6 +259,7 @@ def merged_auto(ups):
         "consignee_name": first("consignee_name"), "consignee_address": first("consignee_address"),
         "consignee_mobile": ", ".join(phones), "booking": first("booking"), "through": first("through"),
         "ewb_no": ", ".join(dict.fromkeys(a["ewb_no"] for a in autos if a["ewb_no"])),
+        "doc_no": ", ".join(dict.fromkeys(a["doc_no"] for a in autos if a["doc_no"])),
         "invoice_no": first("invoice_no"), "invoice_value": round(sum(amounts), 2) if amounts else "",
         "warnings": warnings, "_address_from_place": any(a["_address_from_place"] for a in autos),
     }
@@ -425,7 +426,9 @@ def auto_data(result):
     if not mobile:
         warnings.append("No consignee mobile number was found; the Mob / PH line is left out.")
     booking = fields.get("booking_city", "").strip().upper()
-    through = fields.get("transporter_name", "")
+    # name only: drop any 15-character GSTIN-style transporter ID (e.g. 29ABKCS4159A1Z8)
+    through = re.sub(r"\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]", "", fields.get("transporter_name", ""))
+    through = through.strip(" &,-:")
     if not fields.get("consignee_name"):
         missing.append("consignee_name")
     value = ""
@@ -449,7 +452,7 @@ def auto_data(result):
         "letter_date": bill_date.strftime("%Y-%m-%d") if bill_date else "",
         "parcels": parcels, "consignee_name": fields.get("consignee_name", ""),
         "consignee_address": address, "consignee_mobile": mobile, "booking": booking,
-        "through": through, "ewb_no": ewb_of(fields), "invoice_no": fields.get("invoice_no", ""),
+        "through": through, "ewb_no": ewb_of(fields), "doc_no": fields.get("invoice_no", "") or fields.get("transport_doc_no", ""), "invoice_no": fields.get("invoice_no", ""),
         "invoice_value": value, "warnings": warnings, "missing": missing, "_address_from_place": from_place,
     }
 
@@ -508,7 +511,8 @@ def view_document(doc_id):
     doc = load_doc(doc_id)
     warnings = json.loads(doc["data_json"]).get("warnings", [])
     mobile = json.loads(doc["data_json"]).get("consignee_mobile", "")
-    return render_template("preview.html", doc=doc, warnings=warnings, mobile=mobile, active="dashboard")
+    doc_no = json.loads(doc["data_json"]).get("doc_no", "")
+    return render_template("preview.html", doc=doc, doc_no=doc_no, warnings=warnings, mobile=mobile, active="dashboard")
 
 
 def copy_count(name):

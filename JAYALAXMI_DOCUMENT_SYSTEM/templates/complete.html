@@ -10,10 +10,10 @@
 
   <div class="card mb-3">
     <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
-      <thead><tr><th class="ps-3">E-Way Bill</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end pe-3">Amount</th></tr></thead>
+      <thead><tr><th class="ps-3">Doc No</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end pe-3">Amount</th></tr></thead>
       <tbody>
       {% for b in bills %}<tr>
-        <td class="ps-3">{{ b.ewb_no or b.file }}</td>
+        <td class="ps-3">{{ b.doc_no or b.file }}</td>
         <td>{% if b.date %}{{ b.date[8:10] }}/{{ b.date[5:7] }}/{{ b.date[0:4] }}{% else %}-{% endif %}</td>
         <td>{{ b.party or '-' }}</td>
         <td class="text-end">{{ b.parcels }}</td>
