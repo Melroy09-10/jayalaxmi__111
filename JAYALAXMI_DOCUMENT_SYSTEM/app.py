@@ -352,7 +352,7 @@ def details_form(ids):
         "consignee_name": auto["consignee_name"], "consignee_address": auto["consignee_address"],
         "letter_date": d.strftime("%d/%m/%Y") if d else "", "parcels": auto["parcels"],
         "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
-        "through": auto["through"], "phones": phones,
+        "through": auto["through"], "phones": phones, "booking": "",
     }
     errors, skips = {}, set()
     if request.method == "POST":
@@ -361,7 +361,7 @@ def details_form(ids):
         # every field must be filled, unless the user ticks "Not needed" for it
         skips = {k for k in SKIPPABLE if f.get("skip_" + k)}
         values.update(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
-                      parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through"),
+                      parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through"), booking=clean("booking"),
                       consignee_address="\n".join(l.strip() for l in f.get("consignee_address", "").splitlines() if l.strip()))
         values["phones"] = [p.strip() for p in f.getlist("phone") if p.strip()]
         for k in skips:
@@ -375,6 +375,8 @@ def details_form(ids):
                 out[k] = values[k]
             else:
                 errors[k] = msg
+        values["booking"] = values["booking"].upper()
+        out["booking"] = values["booking"]   # optional: typed by the user, left out of the letters if empty
         dt = parse_form_date(values["letter_date"])
         if dt:
             out["letter_date"] = dt.strftime("%Y-%m-%d")

@@ -73,6 +73,7 @@ LETTER_DEFAULTS = {
     "lt_body_2": "{through}.",
     "lt_to": "To,",
     "lt_ph": "Ph:",
+    "lt_booking": "Booking",
     "lt_closing": "Thanking You,",
     "lt_from_to": "To",
     "lt_from_from": "FROM",
@@ -82,16 +83,17 @@ LETTER_DEFAULTS = {
     "lt_from_4": "MOB - 8861844322",
 }
 LOOK_DEFAULTS = {
-    "lf_font": "original",        # 'original' = Arial + Times New Roman exactly as in the Word macros
-    "lf_size_out": "10",          # base size of the Outward letter body text (other sizes scale with it)
-    "lf_size_from": "18",         # base size of the From letter receiver text
+    "lf_font": "Calibri, sans-serif",        # 'original' = Arial + Times New Roman exactly as in the Word macros
+    "lf_size_out": "15",          # base size of the Outward letter body text (other sizes scale with it)
+    "lf_size_from": "29",         # base size of the From letter receiver text
     "lf_weight_out": "bold",
     "lf_weight_from": "bold",
-    "lf_color_out": "#808080",
+    "lf_color_out": "#000000",
     "lf_color_from": "#000000",
 }
 LETTER_DEFAULTS.update(LOOK_DEFAULTS)
 FONT_CHOICES = {
+    "Calibri, sans-serif": "Calibri (Body)",
     "original": "Original (Arial + Times New Roman)",
     "Arial, Helvetica, sans-serif": "Arial",
     "Times New Roman, Times, serif": "Times New Roman",

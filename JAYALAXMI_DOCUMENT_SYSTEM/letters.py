@@ -1,7 +1,9 @@
 """Letter rendering (HTML fragments) and PDF generation."""
 import io
+import os
 import re
 from datetime import datetime
+from pathlib import Path
 
 import pymupdf
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -172,6 +174,8 @@ def build_context(data, settings, when=None):
         body_1 = re.sub(r"\s*through\s*$", "", body_1).rstrip(" .") + "."
         if "{through}" in lt["lt_body_2"]:
             body_2 = ""
+    if body_2 and lt["lt_body_2"].lstrip().startswith("{through}"):   # transporter continues on the same line
+        body_1, body_2 = body_1.rstrip() + " " + body_2.lstrip(), ""
     k_out, k_from = float(lt["lf_size_out"]) / 10, float(lt["lf_size_from"]) / 18
     sans, serif = ("Arial, Helvetica, sans-serif", "Times New Roman, Times, serif") if lt["lf_font"] == "original" \
         else (lt["lf_font"], lt["lf_font"])
@@ -191,6 +195,8 @@ def build_context(data, settings, when=None):
         "to_address": data["consignee_address"] or "________",
         "to_mobile": " / ".join(p.strip() for p in re.split(r"[/,;]+", data.get("consignee_mobile") or "") if p.strip()),
         "booking": data.get("booking") or "________",
+        "to_booking_out": (data.get("booking") or "").strip().upper(),
+        "to_booking_from": (data.get("booking") or "").strip().upper(),
         "to_name_out": (data["consignee_name"] or "").upper() + ",",
         "to_address_out": address_list((data["consignee_address"] or "").upper()),
         "to_name_from": title_case(data["consignee_name"] or "") + ",",
@@ -219,7 +225,13 @@ def fragment_to_pdf(fragment_html):
     land = mediabox.width > mediabox.height
     # margins from the Word macros: outward 0.55in sides / 0.45in top+bottom; from (landscape) 0.75in / 0.55in
     where = mediabox + ((54, 39.6, -54, -39.6) if land else (39.6, 32.4, -39.6, -32.4))
-    story = pymupdf.Story(html=str(fragment_html), user_css=LETTER_CSS)
+    fonts = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"   # Calibri lives here on Windows
+    css, archive = LETTER_CSS, None
+    if (fonts / "calibri.ttf").exists() and (fonts / "calibrib.ttf").exists():
+        archive = pymupdf.Archive(str(fonts))
+        css = ("@font-face{font-family:Calibri;src:url(calibri.ttf)}"
+               "@font-face{font-family:Calibri;font-weight:bold;src:url(calibrib.ttf)}") + LETTER_CSS
+    story = pymupdf.Story(html=str(fragment_html), user_css=css, archive=archive)
     stream = io.BytesIO()
     writer = pymupdf.DocumentWriter(stream)
     pages = 0

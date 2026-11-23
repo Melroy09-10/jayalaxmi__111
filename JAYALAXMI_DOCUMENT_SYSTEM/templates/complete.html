@@ -62,6 +62,11 @@
         <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_consignee_address" name="skip_consignee_address" value="1" data-for="consignee_address"{% if 'consignee_address' in skips %} checked{% endif %}><label class="form-check-label small" for="s_consignee_address">Not needed</label></div>
       </div>
       <div class="col-12">
+        <label class="form-label" for="f_booking">Booking <span class="text-muted small">(optional)</span></label>
+        <input id="f_booking" name="booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase" class="form-control">
+        <div class="hint">Leave empty to leave it out of the letters.</div>
+      </div>
+      <div class="col-12">
         <label class="form-label">Phone numbers</label>
         <div id="phones">
           {% for p in values.phones %}
