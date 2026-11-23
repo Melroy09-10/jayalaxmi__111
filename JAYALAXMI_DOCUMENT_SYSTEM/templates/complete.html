@@ -57,13 +57,18 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="f_address">Party address</label>
-        <textarea id="f_address" name="consignee_address" rows="3" class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
+        <textarea id="f_address" name="consignee_address" rows="3" data-spellcheck lang="en"class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
         {% if errors.consignee_address %}<div class="invalid-feedback">{{ errors.consignee_address }}</div>{% endif %}
+        <div id="spell" class="small mt-1"></div>
         <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_consignee_address" name="skip_consignee_address" value="1" data-for="consignee_address"{% if 'consignee_address' in skips %} checked{% endif %}><label class="form-check-label small" for="s_consignee_address">Not needed</label></div>
       </div>
       <div class="col-12">
         <label class="form-label" for="f_booking">Booking <span class="text-muted small">(optional)</span></label>
-        <input id="f_booking" name="booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase" class="form-control">
+        <div class="position-relative" id="bk">
+          <div id="bkGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
+          <input id="f_booking" name="booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase;background:transparent;position:relative" class="form-control">
+        </div>
+        <div class="hint">Start typing: a place you used before is completed. Press Tab or the right arrow to accept.</div>
         <div class="hint">Leave empty to leave it out of the letters.</div>
       </div>
       <div class="col-12">
@@ -96,6 +101,22 @@ function row(v){const d=document.createElement('div');d.className='input-group m
 document.getElementById('addPhone').addEventListener('click',()=>row('').querySelector('input').focus());
 box.addEventListener('click',e=>{const b=e.target.closest('.rm');if(b)b.closest('.phone-row').remove()});
 box.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,10)});
+const sp=document.getElementById('spell'),ad=document.getElementById('f_address');let st;
+function chk(){clearTimeout(st);st=setTimeout(()=>{if(ad.disabled){sp.innerHTML='';return}
+  fetch('/spellcheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:ad.value})}).then(r=>r.json()).then(d=>{
+    sp.innerHTML='';if(!d.place_ok){const w=document.createElement('div');w.className='text-danger';w.textContent='No city, state or country found in this address.';sp.appendChild(w)}if(!d.errors.length)return;
+    const t=document.createElement('div');t.className='text-danger';t.textContent='Check spelling:';sp.appendChild(t);
+    d.errors.forEach(e=>{const r=document.createElement('div');r.className='text-danger';r.append(e.word+(e.suggestions.length?' → ':' (no suggestion)'));
+      e.suggestions.forEach(w=>{const b=document.createElement('button');b.type='button';b.className='btn btn-ghost btn-sm py-0 ms-1';b.textContent=w;
+        b.onclick=()=>{ad.value=ad.value.replace(/[A-Za-z']+/g,m=>m===e.word?(m===m.toUpperCase()?w.toUpperCase():w):m);chk()};r.appendChild(b)});sp.appendChild(r)})}).catch(()=>{})},400)}
+ad.addEventListener('input',chk);chk();
+const bk=document.getElementById('f_booking'),gh=document.getElementById('bkGhost');let bkList=[];
+fetch('/bookings').then(r=>r.json()).then(d=>{bkList=d.bookings;ghost()}).catch(()=>{});
+function bkMatch(){const v=bk.value.toUpperCase();return v?bkList.find(b=>b.startsWith(v)&&b!==v)||'':''}
+function ghost(){const v=bk.value.toUpperCase(),m=bkMatch();gh.textContent='';
+  if(!m)return;const a=document.createElement('span');a.style.visibility='hidden';a.textContent=v;const b=document.createElement('span');b.className='text-muted';b.textContent=m.slice(v.length);gh.append(a,b)}
+bk.addEventListener('input',ghost);bk.addEventListener('blur',ghost);
+bk.addEventListener('keydown',e=>{const m=bkMatch();if(m&&(e.key==='Tab'||e.key==='ArrowRight'||e.key==='Enter')&&bk.selectionStart===bk.value.length){e.preventDefault();bk.value=m;ghost()}});
 const fieldsOf={invoice_value:['#f_amount'],through:['#f_through'],consignee_name:['#f_name'],consignee_address:['#f_address'],phones:['#phones input','#addPhone','#phones .rm']};
 function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>document.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}
 document.querySelectorAll('.skip').forEach(cb=>{cb.addEventListener('change',()=>applySkip(cb));applySkip(cb)});

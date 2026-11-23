@@ -1,10 +1,10 @@
-{% macro P(cls, n, text, serif=False) -%}
-<p class="{{ cls }}" style="font-size:{{ sz_from[n] }};font-family:{{ ff_serif if serif else ff_sans }};font-weight:{{ wt_from }};color:{{ col_from }}">{{ text }}</p>
+{% macro P(cls, n, text, serif=False, wt=None) -%}
+<p class="{{ cls }}" style="font-size:{{ sz_from[n] }};font-family:{{ ff_serif if serif else ff_sans }};font-weight:{{ wt or wt_from }};color:{{ col_from }}">{{ text }}</p>
 {%- endmacro %}
 <div class="letter from">
   {{ P('i1', 18, lt.lt_from_to) }}
-  {{ P('i2', 18, to_name_from) }}
-  {% for line in to_address_from %}{{ P('i2', 18, line) }}{% endfor %}
+  {{ P('i2', 18, to_name_from, False, 'bold') }}
+  {% for line in to_address_from %}{{ P('i2', 18, line, False, 'bold') }}{% endfor %}
   {% if to_booking_from %}{{ P('i2', 18, lt.lt_booking ~ ' ' ~ to_booking_from) }}{% endif %}
   {% if to_mobile %}{{ P('i2', 18, lt.lt_ph ~ ' ' ~ to_mobile) }}{% endif %}
   {{ P('i2', 18, NB) }}

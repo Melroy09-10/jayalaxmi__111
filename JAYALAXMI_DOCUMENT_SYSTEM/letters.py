@@ -44,6 +44,28 @@ def address_list(addr):
     return out
 
 
+def address_three(addr):
+    """Address -> exactly three balanced lines (split at commas where possible, else at words);
+    commas kept at the end of the first lines. Fewer lines only when the address is too short to split."""
+    parts = [p.strip(" ,") for p in re.split(r"[\r\n,]+", addr or "") if p.strip(" ,")]
+    if parts and re.fullmatch(r"\d{6}", parts[-1]) and len(parts) > 1:      # '..., Karnataka, 560001'
+        parts = parts[:-2] + [f"{parts[-2]} - {parts[-1]}"]
+    if not parts:
+        return []
+    if len(parts) < 3:                                   # too few comma parts: split at word boundaries
+        parts = ", ".join(parts).split()               # words keep their commas
+        sep = " "
+        if len(parts) < 3:
+            return [" ".join(parts)]
+    else:
+        sep = ", "
+    n = len(parts)
+    best = min(((i, j) for i in range(1, n - 1) for j in range(i + 1, n)),
+               key=lambda ij: max(len(sep.join(parts[:ij[0]])), len(sep.join(parts[ij[0]:ij[1]])), len(sep.join(parts[ij[1]:]))))
+    lines = [sep.join(parts[:best[0]]), sep.join(parts[best[0]:best[1]]), sep.join(parts[best[1]:])]
+    return [l + "," if k < 2 and sep == ", " else l for k, l in enumerate(lines)]   # word-split lines already carry their commas
+
+
 def address_lines(addr):
     return Markup("<br>".join(escape(x) for x in address_list(addr)))
 
@@ -198,9 +220,9 @@ def build_context(data, settings, when=None):
         "to_booking_out": (data.get("booking") or "").strip().upper(),
         "to_booking_from": (data.get("booking") or "").strip().upper(),
         "to_name_out": (data["consignee_name"] or "").upper() + ",",
-        "to_address_out": address_list((data["consignee_address"] or "").upper()),
+        "to_address_out": address_three((data["consignee_address"] or "").upper()),
         "to_name_from": title_case(data["consignee_name"] or "") + ",",
-        "to_address_from": address_list(title_case(data["consignee_address"] or "")),
+        "to_address_from": address_three(title_case(data["consignee_address"] or "")),
         "ewb_no": data.get("ewb_no", ""),
         "show_ewb": settings.get("show_ewb_in_outward") == "1",
     }

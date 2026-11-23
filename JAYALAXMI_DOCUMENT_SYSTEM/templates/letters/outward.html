@@ -13,8 +13,8 @@
   {{ P('', 10, body_1, False, 26, 1.5, 'normal') }}
   {% if body_2 %}{{ P('', 10, body_2, False, 0, 1.5, 'normal') }}{% endif %}
   {{ P('to', 12, lt.lt_to, False, 34) }}
-  {{ P('ind', 14, to_name_out, False, 8, 1.4) }}
-  {% for line in to_address_out %}{{ P('ind', 14, line, False, 2, 1.4) }}{% endfor %}
+  {{ P('ind', 14, to_name_out, False, 8, 1.4, 'bold') }}
+  {% for line in to_address_out %}{{ P('ind', 14, line, False, 2, 1.4, 'bold') }}{% endfor %}
   {% if to_booking_out %}{{ P('ind', 14, lt.lt_booking ~ ' ' ~ to_booking_out, False, 2, 1.4) }}{% endif %}
   {% if to_mobile %}{{ P('ind', 14, lt.lt_ph ~ ' ' ~ to_mobile, False, 2, 1.4) }}{% endif %}
   {% if lt.lt_closing %}{{ P('r', 12, lt.lt_closing, False, 72) }}{% endif %}

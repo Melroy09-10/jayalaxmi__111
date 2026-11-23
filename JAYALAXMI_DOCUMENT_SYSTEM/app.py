@@ -26,6 +26,7 @@ import config
 import db
 import extractor
 import letters
+import places
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_BYTES * 10  # several E-Way Bills per upload
@@ -671,6 +672,44 @@ def letter_format():
     s = db.get_settings()
     vals = letters.clean_letter({k: s.get(k) for k in config.LETTER_DEFAULTS})
     return render_template("format.html", f=vals, fonts=config.FONT_CHOICES, active="format")
+
+
+@app.route("/bookings")
+def bookings():
+    """Booking places used before (most used first), so the form can complete a word from its first letter."""
+    with db.connect() as c:
+        rows = [r[0] for r in c.execute(
+            "SELECT UPPER(TRIM(json_extract(data_json,'$.booking'))) b FROM documents "
+            "UNION ALL SELECT UPPER(TRIM(booking)) FROM customers")]
+    counts = {}
+    for b in rows:
+        if b and b != "________" and len(b) <= 30 and not re.search(r"[\d,]", b):
+            counts[b] = counts.get(b, 0) + 1
+    return {"bookings": sorted(counts, key=lambda b: (-counts[b], b))}
+
+
+_spell = None
+
+
+@app.route("/spellcheck", methods=["POST"])
+def spellcheck():
+    """Possible misspellings in the typed address, with suggestions. Words already used in saved
+    customer addresses (place names) count as correct."""
+    global _spell
+    from spellchecker import SpellChecker
+    if _spell is None:
+        _spell = SpellChecker()
+    text = (request.get_json(silent=True) or {}).get("text", "")[:2000]
+    with db.connect() as c:
+        known = {w for (a,) in c.execute("SELECT address FROM customers") for w in re.findall(r"[A-Za-z]+", (a or "").lower())}
+    out, seen = [], set()
+    for w in re.findall(r"[A-Za-z][A-Za-z']*", text):
+        lw = w.lower()
+        if len(lw) < 3 or lw in seen or lw in known or places.is_place_word(lw) or lw not in _spell.unknown([lw]):
+            continue
+        seen.add(lw)
+        out.append({"word": w, "suggestions": sorted(_spell.candidates(lw) or [], key=lambda x: -_spell.word_usage_frequency(x))[:4] if _spell.candidates(lw) else []})
+    return {"errors": out, "place_ok": places.has_place(text) or not text.strip()}
 
 
 @app.route("/format/preview", methods=["POST"])

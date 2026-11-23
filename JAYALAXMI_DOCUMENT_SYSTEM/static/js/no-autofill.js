@@ -9,7 +9,7 @@
     el.removeAttribute('list');
     el.setAttribute('autocorrect', 'off');
     el.setAttribute('autocapitalize', 'off');
-    el.setAttribute('spellcheck', 'false');
+    el.setAttribute('spellcheck', el.hasAttribute('data-spellcheck') ? 'true' : 'false');
   }
   function scan(root) {
     if (root.nodeType !== 1) return;
