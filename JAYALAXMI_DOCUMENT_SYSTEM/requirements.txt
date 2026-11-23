@@ -1,4 +1,4 @@
 Flask>=3.0
 PyMuPDF>=1.24,<2
-
-gunicornpyspellchecker>=0.8
+gunicorn>=21.2
+pyspellchecker>=0.8
