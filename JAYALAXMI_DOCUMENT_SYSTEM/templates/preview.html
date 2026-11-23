@@ -1,35 +1,32 @@
 {% extends "base.html" %}{% block body %}
-<div class="stepper no-print">
-  <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
-  <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Confirm Details</div><div class="bar"></div>
-  <div class="dot on"><i>3</i>Print</div>
-</div>
-<div class="page-head no-print">
-  <div class="doc-title">
-    <div><h5>{{ doc.receiver_name }}</h5>
-      <div class="chips">
-        <span class="chip"><i class="bi bi-box-seam"></i>{{ doc.parcels }} parcel(s)</span>
-        <span class="chip"><i class="bi bi-currency-rupee"></i>{{ doc.invoice_value|inr }}</span>
-        {% if doc_no %}<span class="chip"><i class="bi bi-file-earmark-text"></i>Doc No {{ doc_no }}</span>{% endif %}
-        <span class="chip"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
-      </div></div>
-    <div class="toolbar">
-      <span class="copies">From <select id="nFrom" class="form-select form-select-sm" title="Copies of the From letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select>
-        Outward <select id="nOut" class="form-select form-select-sm" title="Copies of the Outward letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select>
-        Copies <select id="nSets" class="form-select form-select-sm" title="Number of full sets">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></span>
-      <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All</a>
-      <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit letter</a>
-      <span class="sep"></span>
-      <button class="btn btn-ghost" data-print="from"><i class="bi bi-printer me-1"></i>From</button>
-      <button class="btn btn-ghost" data-print="outward"><i class="bi bi-printer me-1"></i>Outward</button>
-      <button class="btn btn-ghost" data-print="both"><i class="bi bi-printer me-1"></i>Both letters</button>
-      <div class="btn-group"><button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>PDF</button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
-          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
-          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
-          <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
-    </div>
+<div class="doc-card no-print">
+  <div class="doc-head">
+    <i class="bi bi-file-earmark-text doc-ico"></i><span class="doc-bar"></span><h5>{{ doc.receiver_name }}</h5>
+    <svg class="doc-swoosh" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C90 66 170 52 230 28 C262 14 285 6 300 4 L300 20 C270 22 250 34 215 48 C160 66 80 70 0 70Z" fill="#C9A24F"/></svg>
+  </div>
+  <div class="doc-chips">
+    <span class="pchip c-blue"><i class="bi bi-box-seam"></i>{{ doc.parcels }} Parcel(s)</span>
+    <span class="pchip c-green"><i class="bi bi-currency-rupee"></i>{{ doc.invoice_value|inr }}</span>
+    {% if doc_no %}<span class="pchip c-lav"><i class="bi bi-file-earmark-text"></i>Doc No. {{ doc_no }}</span>{% endif %}
+    <span class="pchip c-cream"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
+  </div>
+  <div class="doc-tools">
+    <div class="ps-title"><i class="bi bi-printer"></i>Print Settings</div>
+    <label class="ps-field"><span>From</span><select id="nFrom" class="form-select form-select-sm" title="Copies of the From letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
+    <label class="ps-field"><span>Outward</span><select id="nOut" class="form-select form-select-sm" title="Copies of the Outward letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
+    <label class="ps-field"><span>Copies</span><select id="nSets" class="form-select form-select-sm" title="Number of full sets">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
+    <span class="ps-sep"></span>
+    <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All</a>
+    <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit Letter</a>
+    <button class="btn btn-ghost" data-print="from"><i class="bi bi-printer me-1"></i>From</button>
+    <button class="btn btn-ghost" data-print="outward"><i class="bi bi-printer me-1"></i>Outward</button>
+    <button class="btn btn-ghost" data-print="both"><i class="bi bi-printer me-1"></i>Both Letters</button>
+    <div class="btn-group"><button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>PDF</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
   </div>
 </div>
 <div class="row g-3">

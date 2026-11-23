@@ -377,6 +377,7 @@ def details_form(ids):
             else:
                 errors[k] = msg
         values["booking"] = values["booking"].upper()
+        db.remember_booking(values["booking"])   # remembered even if the letters are not created yet
         out["booking"] = values["booking"]   # optional: typed by the user, left out of the letters if empty
         dt = parse_form_date(values["letter_date"])
         if dt:
@@ -674,16 +675,25 @@ def letter_format():
     return render_template("format.html", f=vals, fonts=config.FONT_CHOICES, active="format")
 
 
-@app.route("/bookings")
+@app.route("/bookings", methods=["GET", "POST", "DELETE"])
 def bookings():
+    if request.method == "DELETE":
+        db.forget_booking((request.get_json(silent=True) or {}).get("name", ""))
+        return {"ok": True}
+    if request.method == "POST":
+        db.remember_booking((request.get_json(silent=True) or {}).get("name", ""))
+        return {"ok": True}
     """Booking places used before (most used first), so the form can complete a word from its first letter."""
     with db.connect() as c:
         rows = [r[0] for r in c.execute(
             "SELECT UPPER(TRIM(json_extract(data_json,'$.booking'))) b FROM documents "
-            "UNION ALL SELECT UPPER(TRIM(booking)) FROM customers")]
+            "UNION ALL SELECT UPPER(TRIM(booking)) FROM customers "
+            "UNION ALL SELECT name FROM booking_places")]
+    with db.connect() as c:
+        hidden = {r[0] for r in c.execute("SELECT name FROM booking_hidden")}
     counts = {}
     for b in rows:
-        if b and b != "________" and len(b) <= 30 and not re.search(r"[\d,]", b):
+        if b and b not in hidden and b != "________" and len(b) <= 30 and not re.search(r"[\d,]", b):
             counts[b] = counts.get(b, 0) + 1
     return {"bookings": sorted(counts, key=lambda b: (-counts[b], b))}
 

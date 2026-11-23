@@ -17,6 +17,7 @@ _env = Environment(
 )
 _env.filters["lines"] = lambda s: Markup("<br>".join(escape(l.strip()) for l in (s or "").splitlines() if l.strip()))
 
+FROM_MAX_LINES = 4  # the landscape From letter has room for this many address lines at the default size
 ADDRESS_MAX = 38  # characters; a longer street part is split into two lines
 
 
@@ -44,26 +45,23 @@ def address_list(addr):
     return out
 
 
-def address_three(addr):
-    """Address -> exactly three balanced lines (split at commas where possible, else at words);
-    commas kept at the end of the first lines. Fewer lines only when the address is too short to split."""
+def address_three(addr, max_lines=None):
+    """Address -> one line per comma-separated part (commas kept at the end of each line but the last).
+    A trailing pincode is joined to the part before it, so 'State - PINCODE' stays on one line."""
     parts = [p.strip(" ,") for p in re.split(r"[\r\n,]+", addr or "") if p.strip(" ,")]
     if parts and re.fullmatch(r"\d{6}", parts[-1]) and len(parts) > 1:      # '..., Karnataka, 560001'
         parts = parts[:-2] + [f"{parts[-2]} - {parts[-1]}"]
-    if not parts:
-        return []
-    if len(parts) < 3:                                   # too few comma parts: split at word boundaries
-        parts = ", ".join(parts).split()               # words keep their commas
-        sep = " "
-        if len(parts) < 3:
-            return [" ".join(parts)]
-    else:
-        sep = ", "
-    n = len(parts)
-    best = min(((i, j) for i in range(1, n - 1) for j in range(i + 1, n)),
-               key=lambda ij: max(len(sep.join(parts[:ij[0]])), len(sep.join(parts[ij[0]:ij[1]])), len(sep.join(parts[ij[1]:]))))
-    lines = [sep.join(parts[:best[0]]), sep.join(parts[best[0]:best[1]]), sep.join(parts[best[1]:])]
-    return [l + "," if k < 2 and sep == ", " else l for k, l in enumerate(lines)]   # word-split lines already carry their commas
+    if max_lines and len(parts) > max_lines:      # too many parts for the page: join neighbours, keeping 'State - PIN' last
+        from itertools import combinations
+        best = None
+        for cut in combinations(range(1, len(parts)), max_lines - 1):
+            idx = (0,) + cut + (len(parts),)
+            groups = [", ".join(parts[idx[k]:idx[k + 1]]) for k in range(max_lines)]
+            score = max(len(g) for g in groups)
+            if best is None or score < best[0]:
+                best = (score, groups)
+        parts = best[1]
+    return [p + "," for p in parts[:-1]] + parts[-1:]
 
 
 def address_lines(addr):
@@ -167,9 +165,9 @@ def _indian(n):
 
 
 def money(value):
-    """73250 -> 'Rs. 73,250/-' (Indian digit grouping); paise only when present."""
+    """73250 -> 'Rs. 73,250.00/-' (Indian digit grouping), always with two decimals."""
     whole, paise = divmod(round(float(value) * 100), 100)
-    return "Rs. " + _indian(whole) + (".%02d" % paise if paise else "") + "/-"
+    return "Rs. " + _indian(whole) + ".%02d" % paise + "/-"
 
 
 def format_date(dt, fmt):
@@ -222,7 +220,7 @@ def build_context(data, settings, when=None):
         "to_name_out": (data["consignee_name"] or "").upper() + ",",
         "to_address_out": address_three((data["consignee_address"] or "").upper()),
         "to_name_from": title_case(data["consignee_name"] or "") + ",",
-        "to_address_from": address_three(title_case(data["consignee_address"] or "")),
+        "to_address_from": address_three(title_case(data["consignee_address"] or ""), FROM_MAX_LINES),
         "ewb_no": data.get("ewb_no", ""),
         "show_ewb": settings.get("show_ewb_in_outward") == "1",
     }

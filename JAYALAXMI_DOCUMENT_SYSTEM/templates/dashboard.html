@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block body %}
-<div class="page-head"><h5>Dashboard</h5><div class="sub">Turn an E-Way Bill into print-ready letters in three quick steps.</div></div>
+<div class="page-head"><h5>Dashboard</h5></div>
 <div class="card hero mb-4">
   <h5 class="mb-1">Create New Documents</h5>
   <div class="text-secondary mb-4">Upload one or more E-Way Bill PDFs. The details are read automatically and both letters are generated for you.</div>
@@ -16,11 +16,6 @@
       <button type="submit" class="btn btn-gold px-4 mb-0 disabled" id="upBtn"><i class="bi bi-upload me-2"></i>Read E-Way Bills &amp; continue</button>
     </div>
   </form>
-</div>
-<div class="steps">
-  <div class="card step"><div class="no">1</div><div><b>Upload</b><span>Choose one or more E-Way Bill PDFs.</span></div></div>
-  <div class="card step"><div class="no">2</div><div><b>Confirm details</b><span>Check the receiver, amount and parcels.</span></div></div>
-  <div class="card step"><div class="no">3</div><div><b>Print</b><span>Print the From letter, Outward letter and E-Way Bill together.</span></div></div>
 </div>
 {% endblock %}
 {% block scripts %}<script>

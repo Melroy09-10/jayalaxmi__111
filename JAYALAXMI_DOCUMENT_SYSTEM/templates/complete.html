@@ -1,10 +1,5 @@
 {% extends "base.html" %}{% block body %}
 <div class="mx-auto" style="max-width:760px">
-  <div class="stepper">
-    <div class="dot done"><i><span class="bi bi-check-lg"></span></i>Upload</div><div class="bar"></div>
-    <div class="dot on"><i>2</i>Confirm Details</div><div class="bar"></div>
-    <div class="dot"><i>3</i>Print</div>
-  </div>
   <div class="page-head"><h5>Enter details</h5>
     <div class="sub">{{ ups|length }} E-Way Bill{{ 's' if ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.</div></div>
 
@@ -67,9 +62,8 @@
         <div class="position-relative" id="bk">
           <div id="bkGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
           <input id="f_booking" name="booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase;background:transparent;position:relative" class="form-control">
+          <div id="bkList" class="list-group position-absolute w-100 shadow-sm" style="z-index:20;max-height:220px;overflow:auto;display:none"></div>
         </div>
-        <div class="hint">Start typing: a place you used before is completed. Press Tab or the right arrow to accept.</div>
-        <div class="hint">Leave empty to leave it out of the letters.</div>
       </div>
       <div class="col-12">
         <label class="form-label">Phone numbers</label>
@@ -115,7 +109,21 @@ fetch('/bookings').then(r=>r.json()).then(d=>{bkList=d.bookings;ghost()}).catch(
 function bkMatch(){const v=bk.value.toUpperCase();return v?bkList.find(b=>b.startsWith(v)&&b!==v)||'':''}
 function ghost(){const v=bk.value.toUpperCase(),m=bkMatch();gh.textContent='';
   if(!m)return;const a=document.createElement('span');a.style.visibility='hidden';a.textContent=v;const b=document.createElement('span');b.className='text-muted';b.textContent=m.slice(v.length);gh.append(a,b)}
-bk.addEventListener('input',ghost);bk.addEventListener('blur',ghost);
+const ls=document.getElementById('bkList');
+function showList(){const v=bk.value.toUpperCase().trim();
+  const m=bkList.filter(b=>b!==v&&(!v||b.includes(v))).sort((a,b)=>(b.startsWith(v)-a.startsWith(v))).slice(0,30);
+  ls.textContent='';if(!m.length||bk.disabled){ls.style.display='none';return}
+  m.forEach(b=>{const o=document.createElement('div');o.className='list-group-item list-group-item-action py-1 d-flex justify-content-between align-items-center';o.style.cursor='pointer';
+    const t=document.createElement('span');t.textContent=b;const x=document.createElement('button');x.type='button';x.className='btn btn-sm btn-link text-danger p-0 px-1';x.title='Delete '+b;x.innerHTML='<i class="bi bi-trash"></i>';
+    o.append(t,x);
+    x.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();if(!confirm('Delete "'+b+'" from the saved bookings?'))return;
+      fetch('/bookings',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:b})}).then(()=>{bkList=bkList.filter(y=>y!==b);ghost();showList()}).catch(()=>{})});
+    o.addEventListener('mousedown',e=>{if(e.target.closest('button')&&e.target!==o&&e.target.closest('button')===x)return;e.preventDefault();bk.value=b;ghost();ls.style.display='none';fetch('/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:b})}).catch(()=>{})});ls.appendChild(o)});
+  ls.style.display='block'}
+bk.addEventListener('focus',showList);bk.addEventListener('input',showList);
+bk.addEventListener('blur',()=>{ls.style.display='none'});
+bk.addEventListener('input',ghost);
+bk.addEventListener('blur',()=>{ghost();const v=bk.value.trim();if(v)fetch('/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:v})}).catch(()=>{})});
 bk.addEventListener('keydown',e=>{const m=bkMatch();if(m&&(e.key==='Tab'||e.key==='ArrowRight'||e.key==='Enter')&&bk.selectionStart===bk.value.length){e.preventDefault();bk.value=m;ghost()}});
 const fieldsOf={invoice_value:['#f_amount'],through:['#f_through'],consignee_name:['#f_name'],consignee_address:['#f_address'],phones:['#phones input','#addPhone','#phones .rm']};
 function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>document.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}

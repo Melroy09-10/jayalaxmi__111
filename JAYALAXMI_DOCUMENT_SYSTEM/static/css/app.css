@@ -104,3 +104,34 @@ table.t tr:last-child td{border-bottom:0}table.t tbody tr:hover{background:#fafb
 
 @media(max-width:900px){.sidebar{position:static;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center}.main{margin-left:0}.sidebar .foot,.nav-label{display:none}.brand{border:0;margin:0;padding:0 12px 0 0}.content{padding:20px 16px}.topbar{padding:12px 16px}.sidebar a.active::before{display:none}}
 @media print{.sidebar,.topbar,.no-print{display:none!important}.main{margin:0}}
+
+.pv-bar .btn{height:40px;display:inline-flex;align-items:center;font-size:.84rem;font-weight:600;white-space:nowrap}
+.pv-bar .btn-ghost{color:var(--navy);box-shadow:var(--shadow)}
+.pv-bar .btn-group .btn{border-radius:var(--bs-btn-border-radius)}
+
+/* print page header card */
+.doc-card{background:linear-gradient(180deg,#F4F4F6,#FBF9F4);border-radius:18px;box-shadow:0 8px 24px rgba(15,30,60,.12);overflow:hidden;margin-bottom:18px;border:1px solid #E6E3DA}
+.doc-head{position:relative;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,#1B2B4B,#2A3F66);color:#fff;padding:18px 28px;min-height:76px;overflow:hidden}
+.doc-head h5{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:1.7rem;font-weight:600;letter-spacing:.5px;color:#fff;position:relative;z-index:1}
+.doc-ico{font-size:2rem;color:#E0B85A;position:relative;z-index:1}
+.doc-bar{width:1px;height:30px;background:rgba(224,184,90,.7);position:relative;z-index:1}
+.doc-swoosh{position:absolute;right:0;bottom:0;width:300px;height:100%;opacity:.95}
+.doc-chips{display:flex;flex-wrap:wrap;gap:12px;padding:16px 24px 6px}
+.pchip{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:999px;font-weight:650;color:#14213D;box-shadow:0 2px 6px rgba(15,30,60,.10);border:1px solid rgba(255,255,255,.8);font-size:.95rem}
+.pchip i{color:#B8862B;font-size:1.1rem}
+.c-blue{background:#E4EEFB}.c-green{background:#E3F6E8}.c-lav{background:#ECEBFA}.c-cream{background:#FBF0DC}
+.doc-tools{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;padding:14px 24px 20px}
+.doc-tools .btn{height:42px;display:inline-flex;align-items:center;font-size:.9rem;font-weight:650;white-space:nowrap;border-radius:12px}
+.doc-tools .btn-ghost{color:#14213D;border:1px solid #1B2B4B;background:#fff;box-shadow:0 2px 5px rgba(15,30,60,.08)}
+.ps-title{display:flex;align-items:center;gap:10px;font-weight:700;color:#14213D;font-size:1.05rem;height:42px;padding-right:6px}
+.ps-title i{font-size:1.4rem}
+.ps-field{display:flex;flex-direction:column;gap:2px;margin:0;padding-left:14px;border-left:1px solid #D8D5CC}
+.ps-field span{font-weight:650;color:#14213D;font-size:.85rem}
+.ps-field select{width:78px;height:34px;border-radius:10px;font-weight:600;box-shadow:0 2px 5px rgba(15,30,60,.08)}
+.ps-sep{width:1px;height:42px;background:#D8D5CC;margin:0 4px}
+@media(max-width:700px){.ps-sep{display:none}.doc-swoosh{width:140px}}
+
+/* print settings: label centred over a larger, centred number */
+.ps-field{align-items:center;gap:4px;padding:0 16px}
+.ps-field span{text-align:center;width:100%}
+.ps-field select{width:92px;height:40px;font-size:1.05rem;font-weight:700;color:#14213D;text-align:center;text-align-last:center;padding:0 26px 0 12px;background-position:right 10px center;cursor:pointer}

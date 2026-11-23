@@ -5,8 +5,8 @@
 .letter .r { text-align: right; }
 .letter.out .hd { text-align: center; }
 .letter.out .ind { padding-left: 39.6pt; }
-.letter.from .i1 { padding-left: 10.8pt; }
-.letter.from .i2 { padding-left: 50.4pt; }
-.letter.from .i3 { padding-left: 10.8pt; }
-.letter.from .i4 { padding-left: 50.4pt; }
+.letter.from .i1 { padding-left: 0; }
+.letter.from .i2 { padding-left: 36pt; }
+.letter.from .i3 { padding-left: 0; }
+.letter.from .i4 { padding-left: 36pt; }
 .letter.out .to { padding-left: 14pt; }

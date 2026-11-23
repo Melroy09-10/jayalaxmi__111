@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS customers (
     booking TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+CREATE TABLE IF NOT EXISTS booking_hidden (name TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS booking_places (
+    name TEXT PRIMARY KEY,
+    uses INTEGER NOT NULL DEFAULT 1,
+    last_used TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
 """
 
 
@@ -57,6 +63,25 @@ def connect():
         conn.commit()
     finally:
         conn.close()
+
+
+def remember_booking(name):
+    """Keep a booking place so the form can complete it next time (also after the app is restarted)."""
+    name = " ".join((name or "").upper().split())
+    if name and len(name) <= 30:
+        with connect() as c:
+            c.execute("DELETE FROM booking_hidden WHERE name=?", (name,))   # typing it again brings it back
+            c.execute("INSERT INTO booking_places(name) VALUES(?) ON CONFLICT(name) DO UPDATE SET "
+                      "uses=uses+1, last_used=datetime('now','localtime')", (name,))
+
+
+def forget_booking(name):
+    """Remove a place from the suggestions. Letters already made are left untouched."""
+    name = " ".join((name or "").upper().split())
+    if name:
+        with connect() as c:
+            c.execute("DELETE FROM booking_places WHERE name=?", (name,))
+            c.execute("INSERT OR IGNORE INTO booking_hidden(name) VALUES(?)", (name,))
 
 
 def init_db():
