@@ -78,7 +78,8 @@ def _clean(v):
 
 
 def _lines(text):
-    return [re.sub(r"[ \t]+", " ", l).strip() for l in text.splitlines() if l.strip()]
+    # Part A slips pad labels with dashes ("Unique No.-----1126..."): treat a run of 3+ dashes as ":"
+    return [re.sub(r"[ \t]+", " ", re.sub(r"\s*-{3,}\s*", ": ", l)).strip() for l in text.splitlines() if l.strip()]
 
 
 def _label_value(lines, label_regex, stop_regex=None):
@@ -184,7 +185,8 @@ def extract(path):
     rec = _label_value(lines, r"GSTIN\s*of\s*Recipient\s*:?")
     f["consignor_gstin"], f["consignor_name"] = _gstin_and_name(sup)
     f["consignee_gstin"], f["consignee_name"] = _gstin_and_name(rec)
-    if not f["consignor_gstin"] or not f["consignee_gstin"]:
+    unregistered = rec.upper().startswith("URP")
+    if not f["consignor_gstin"] or (not f["consignee_gstin"] and not unregistered):
         found = re.findall(GSTIN_RE, flat)
         if len(found) >= 2:
             f["consignor_gstin"] = f["consignor_gstin"] or found[0]
@@ -233,9 +235,17 @@ def extract(path):
         f["transporter_name"] = _label_value(lines, r"Transporter\s*Name\s*:?")
         f["transporter_id"] = _label_value(lines, r"Transporter\s*ID\s*:?")
     if not f["transporter_name"]:   # Part A slip: "Transporter:" then "06AAPCS9575E1ZR & DELHIVERY LIMITED"
-        tr = _label_value(lines, r"^\s*Transporter\s*:")
+        tr = _label_value(lines, r"^\s*Transporter\s*:?\s*$|^\s*Transporter\s*:")
         m = re.match(r"([0-9A-Z]{15})\s*[&,-]\s*(.*)", tr)
         f["transporter_id"], f["transporter_name"] = (m.group(1), _clean(m.group(2))) if m else ("", _clean(tr))
+        # the portal wraps long names ("... PRIVATE" / "LIMITED"): join the continuation line
+        for i, line in enumerate(lines):
+            if re.match(r"^\s*Transporter\s*(?::|$)", line):
+                j = i + 1 if re.search(r"[0-9A-Z]{15}", line) else i + 2   # bare label: value is on the next line
+                nxt = lines[j] if j < len(lines) else ""
+                if nxt and ":" not in nxt and re.fullmatch(r"[A-Za-z .&()'-]{2,40}", nxt):
+                    f["transporter_name"] = _clean(f["transporter_name"] + " " + nxt)
+                break
     if not f["transporter_name"] or not f["transporter_name"].strip("& "):
         f["transporter_name"] = ""
     td = _label_value(lines, r"Transporter\s*Doc\.?\s*No\.?\s*(?:&|and)?\s*Date\s*:?")

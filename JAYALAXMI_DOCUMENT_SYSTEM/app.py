@@ -57,6 +57,24 @@ def auth_required():
     return bool(os.environ.get("APP_PASSWORD"))
 
 
+@app.after_request
+def disable_autofill(resp):
+    """Server-side backstop: every form/input/textarea/select in every HTML page gets autocomplete off."""
+    if resp.mimetype != "text/html" or resp.direct_passthrough:
+        return resp
+    html = resp.get_data(as_text=True)
+
+    def tag(m):
+        t = m.group(0)
+        if re.search(r"\bautocomplete\s*=", t, re.I) or re.search(r"""type\s*=\s*["']?(?:hidden|file)""", t, re.I):
+            return t
+        val = "new-password" if re.search(r"""type\s*=\s*["']?password""", t, re.I) else "off"
+        return t[:-1].rstrip("/").rstrip() + f' autocomplete="{val}"' + ("/>" if t.endswith("/>") else ">")
+
+    resp.set_data(re.sub(r"<(?:form|input|textarea|select)\b[^>]*>", tag, html, flags=re.I))
+    return resp
+
+
 @app.before_request
 def require_login():
     if not auth_required() or request.endpoint in ("login", "static"):
