@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS customers (
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE TABLE IF NOT EXISTS booking_hidden (name TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS transporters (
+    name TEXT PRIMARY KEY,
+    uses INTEGER NOT NULL DEFAULT 0,
+    last_used TEXT
+);
+CREATE TABLE IF NOT EXISTS transporter_hidden (name TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS booking_places (
     name TEXT PRIMARY KEY,
     uses INTEGER NOT NULL DEFAULT 1,
@@ -84,9 +90,39 @@ def forget_booking(name):
             c.execute("INSERT OR IGNORE INTO booking_hidden(name) VALUES(?)", (name,))
 
 
+# Transporters from Transport_GSTIN_List.docx - suggested in the "Address through" box (separate from Booking).
+SEED_TRANSPORTERS = [
+    "VIJAYANANDA TRAVELS", "VRL LOGISTICS LTD", "ANAND CARGO", "CANARA GOODS", "VISHAL", "SPOTON",
+    "DELHIVERY LIMITED", "SPEEDEX", "VISHWA", "GANESH EXPRESS CARGO", "GATI EXPRESS", "SRS", "SHREEKUMAR",
+    "DURGAMBA", "RIVIGO", "SRI ADIKSHATHI", "RCPL LOGISTICS LTD", "PROFESSIONAL COURIES", "TCT",
+    "SHEETHAL CARGO", "RECTUS LOGISTICS", "VRPM", "VEGA", "POSTMASTER UDUPI HO", "SEA BRID",
+]
+
+
+def remember_transporter(name):
+    """Keep an 'Address through' name so it is suggested next time."""
+    name = " ".join((name or "").upper().split())
+    if name and len(name) <= 60:
+        with connect() as c:
+            c.execute("DELETE FROM transporter_hidden WHERE name=?", (name,))
+            c.execute("INSERT INTO transporters(name,uses,last_used) VALUES(?,1,datetime('now','localtime')) "
+                      "ON CONFLICT(name) DO UPDATE SET uses=uses+1, last_used=datetime('now','localtime')", (name,))
+
+
+def forget_transporter(name):
+    name = " ".join((name or "").upper().split())
+    if name:
+        with connect() as c:
+            c.execute("DELETE FROM transporters WHERE name=?", (name,))
+            c.execute("INSERT OR IGNORE INTO transporter_hidden(name) VALUES(?)", (name,))
+
+
 def init_db():
     with connect() as c:
         c.executescript(SCHEMA)
+        for t in SEED_TRANSPORTERS:
+            c.execute("INSERT OR IGNORE INTO transporters(name) SELECT ? WHERE NOT EXISTS "
+                      "(SELECT 1 FROM transporter_hidden WHERE name=?)", (t, t))
         for k, v in config.DEFAULT_SETTINGS.items():
             c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)", (k, v))
 

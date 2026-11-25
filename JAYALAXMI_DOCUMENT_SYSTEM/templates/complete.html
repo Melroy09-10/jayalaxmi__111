@@ -1,9 +1,9 @@
 {% extends "base.html" %}{% block body %}
 <div class="mx-auto" style="max-width:760px">
   <div class="page-head"><h5>Enter details</h5>
-    <div class="sub">{{ ups|length }} E-Way Bill{{ 's' if ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.</div></div>
+    <div class="sub">{% if manual %}Fill in the details below, then create the letters.{% else %}{{ ups|length }} E-Way Bill{{ 's' if ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.{% endif %}</div></div>
 
-  <div class="card mb-3">
+  {% if not manual %}<div class="card mb-3">
     <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
       <thead><tr><th class="ps-3">Doc No</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end pe-3">Amount</th></tr></thead>
       <tbody>
@@ -15,7 +15,7 @@
         <td class="text-end pe-3">{{ b.value|inr if b.value != '' else '-' }}</td></tr>
       {% endfor %}
       </tbody></table></div>
-  </div>
+  </div>{% endif %}
 
   <form method="post" class="card" novalidate>
     <div class="p-4 row g-3">
@@ -27,9 +27,9 @@
       <div class="col-md-4">
         <label class="form-label" for="f_amount">Total amount</label>
         <div class="input-group"><span class="input-group-text">Rs.</span>
-          <input id="f_amount" name="invoice_value" value="{{ values.invoice_value }}" inputmode="decimal" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
+          <input id="f_amount" name="invoice_value" value="{{ values.invoice_value }}" inputmode="text" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
           {% if errors.invoice_value %}<div class="invalid-feedback">{{ errors.invoice_value }}</div>{% endif %}</div>
-        {% if bills|length > 1 %}<div class="hint">Sum of all E-Way Bills.</div>{% endif %}
+        <div class="hint" id="calcHint">{% if bills|length > 1 %}Sum of all E-Way Bills.{% endif %}</div>
         <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_invoice_value" name="skip_invoice_value" value="1" data-for="invoice_value"{% if 'invoice_value' in skips %} checked{% endif %}><label class="form-check-label small" for="s_invoice_value">Not needed</label></div>
       </div>
       <div class="col-md-4">
@@ -39,7 +39,10 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="f_through">Address through</label>
-        <input id="f_through" name="through" value="{{ values.through }}" class="form-control{% if errors.through %} is-invalid{% endif %}">
+        <div class="position-relative" id="th">
+          <div id="thGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
+          <input id="f_through" name="through" value="{{ values.through }}" style="text-transform:uppercase;background:transparent;position:relative" class="form-control{% if errors.through %} is-invalid{% endif %}">
+        </div>
         {% if errors.through %}<div class="invalid-feedback">{{ errors.through }}</div>{% endif %}
         <div class="hint">Transport details from the E-Way Bill.</div>
         <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_through" name="skip_through" value="1" data-for="through"{% if 'through' in skips %} checked{% endif %}><label class="form-check-label small" for="s_through">Not needed</label></div>
@@ -104,28 +107,40 @@ function chk(){clearTimeout(st);st=setTimeout(()=>{if(ad.disabled){sp.innerHTML=
       e.suggestions.forEach(w=>{const b=document.createElement('button');b.type='button';b.className='btn btn-ghost btn-sm py-0 ms-1';b.textContent=w;
         b.onclick=()=>{ad.value=ad.value.replace(/[A-Za-z']+/g,m=>m===e.word?(m===m.toUpperCase()?w.toUpperCase():w):m);chk()};r.appendChild(b)});sp.appendChild(r)})}).catch(()=>{})},400)}
 ad.addEventListener('input',chk);chk();
-const bk=document.getElementById('f_booking'),gh=document.getElementById('bkGhost');let bkList=[];
-fetch('/bookings').then(r=>r.json()).then(d=>{bkList=d.bookings;ghost()}).catch(()=>{});
-function bkMatch(){const v=bk.value.toUpperCase();return v?bkList.find(b=>b.startsWith(v)&&b!==v)||'':''}
-function ghost(){const v=bk.value.toUpperCase(),m=bkMatch();gh.textContent='';
-  if(!m)return;const a=document.createElement('span');a.style.visibility='hidden';a.textContent=v;const b=document.createElement('span');b.className='text-muted';b.textContent=m.slice(v.length);gh.append(a,b)}
-const ls=document.getElementById('bkList');
-function showList(){const v=bk.value.toUpperCase().trim();
-  const m=bkList.filter(b=>b!==v&&(!v||b.includes(v))).sort((a,b)=>(b.startsWith(v)-a.startsWith(v))).slice(0,30);
-  ls.textContent='';if(!m.length||bk.disabled){ls.style.display='none';return}
-  m.forEach(b=>{const o=document.createElement('div');o.className='list-group-item list-group-item-action py-1 d-flex justify-content-between align-items-center';o.style.cursor='pointer';
-    const t=document.createElement('span');t.textContent=b;const x=document.createElement('button');x.type='button';x.className='btn btn-sm btn-link text-danger p-0 px-1';x.title='Delete '+b;x.innerHTML='<i class="bi bi-trash"></i>';
-    o.append(t,x);
-    x.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();if(!confirm('Delete "'+b+'" from the saved bookings?'))return;
-      fetch('/bookings',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:b})}).then(()=>{bkList=bkList.filter(y=>y!==b);ghost();showList()}).catch(()=>{})});
-    o.addEventListener('mousedown',e=>{if(e.target.closest('button')&&e.target!==o&&e.target.closest('button')===x)return;e.preventDefault();bk.value=b;ghost();ls.style.display='none';fetch('/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:b})}).catch(()=>{})});ls.appendChild(o)});
-  ls.style.display='block'}
-bk.addEventListener('focus',showList);bk.addEventListener('input',showList);
-bk.addEventListener('blur',()=>{ls.style.display='none'});
-bk.addEventListener('input',ghost);
-bk.addEventListener('blur',()=>{ghost();const v=bk.value.trim();if(v)fetch('/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:v})}).catch(()=>{})});
-bk.addEventListener('keydown',e=>{const m=bkMatch();if(m&&(e.key==='Tab'||e.key==='ArrowRight'||e.key==='Enter')&&bk.selectionStart===bk.value.length){e.preventDefault();bk.value=m;ghost()}});
-const fieldsOf={invoice_value:['#f_amount'],through:['#f_through'],consignee_name:['#f_name'],consignee_address:['#f_address'],phones:['#phones input','#addPhone','#phones .rm']};
+function suggest(o){ // o: input, ghost, list (optional: no dropdown without it), url, key, upper
+  const inp=document.getElementById(o.input),gh=document.getElementById(o.ghost),ls=o.list?document.getElementById(o.list):null;let items=[];
+  const norm=v=>o.upper?v.toUpperCase():v;
+  const post=(m,n)=>fetch(o.url,{method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})}).catch(()=>{});
+  fetch(o.url).then(r=>r.json()).then(d=>{items=d[o.key];ghost()}).catch(()=>{});
+  function match(){const v=inp.value.toUpperCase();return v?items.find(b=>b.toUpperCase().startsWith(v)&&b.toUpperCase()!==v)||'':''}
+  function ghost(){const m=match();gh.textContent='';if(!m)return;
+    const a=document.createElement('span');a.style.visibility='hidden';a.textContent=inp.value;const b=document.createElement('span');b.className='text-muted';b.textContent=m.slice(inp.value.length);gh.append(a,b)}
+  function show(){if(!ls)return;const v=inp.value.toUpperCase().trim();
+    const m=items.filter(b=>b.toUpperCase()!==v&&(!v||b.toUpperCase().includes(v))).sort((a,b)=>(b.toUpperCase().startsWith(v)-a.toUpperCase().startsWith(v))).slice(0,30);
+    ls.textContent='';if(!m.length||inp.disabled){ls.style.display='none';return}
+    m.forEach(b=>{const row=document.createElement('div');row.className='list-group-item list-group-item-action py-1 d-flex justify-content-between align-items-center';row.style.cursor='pointer';
+      const t=document.createElement('span');t.textContent=b;const x=document.createElement('button');x.type='button';x.className='btn btn-sm btn-link text-danger p-0 px-1';x.title='Delete '+b;x.innerHTML='<i class="bi bi-trash"></i>';
+      row.append(t,x);
+      x.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();if(!confirm('Delete "'+b+'" from the saved suggestions?'))return;
+        fetch(o.url,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:b})}).then(()=>{items=items.filter(y=>y!==b);ghost();show()}).catch(()=>{})});
+      row.addEventListener('mousedown',e=>{if(e.target.closest('button')===x)return;e.preventDefault();inp.value=norm(b);ghost();ls.style.display='none';post('POST',b)});ls.appendChild(row)});
+    ls.style.display='block'}
+  inp.addEventListener('focus',show);inp.addEventListener('input',show);inp.addEventListener('input',ghost);
+  inp.addEventListener('blur',()=>{if(ls)ls.style.display='none';ghost();const v=inp.value.trim();if(v)post('POST',v)});
+  inp.addEventListener('keydown',e=>{const m=match();if(m&&(e.key==='Tab'||e.key==='ArrowRight'||e.key==='Enter')&&inp.selectionStart===inp.value.length){e.preventDefault();inp.value=norm(m);ghost()}});
+}
+suggest({input:'f_booking',ghost:'bkGhost',list:'bkList',url:'/bookings',key:'bookings',upper:true});
+suggest({input:'f_through',ghost:'thGhost',url:'/transporters',key:'items',upper:true});
+document.getElementById('f_through').addEventListener('input',function(){const a=this.selectionStart,b=this.selectionEnd;this.value=this.value.toUpperCase();this.setSelectionRange(a,b)});
+const am=document.getElementById('f_amount'),ch=document.getElementById('calcHint'),chDef=ch.textContent;
+function calc(t){t=t.replace(/,/g,'').replace(/[x×]/gi,'*').replace(/÷/g,'/').trim();
+  if(!t||!/^[\d+\-*\/().\s]+$/.test(t)||!/[+\-*\/]/.test(t.replace(/^\s*-/,'')))return null;
+  try{const v=Function('"use strict";return ('+t+')')();return Number.isFinite(v)?Math.round(v*100)/100:null}catch(e){return null}}
+am.addEventListener('input',()=>{const v=calc(am.value);ch.textContent=v===null?chDef:'= '+v.toFixed(2)+'  (press Enter or click away to use it)'});
+function applyCalc(){const v=calc(am.value);if(v!==null){am.value=v.toFixed(2);ch.textContent=chDef}return v!==null}
+am.addEventListener('blur',applyCalc);
+am.addEventListener('keydown',e=>{if(e.key==='Enter'&&applyCalc())e.preventDefault()});
+const fieldsOf={invoice_value:['#f_amount'],through:['#f_through','#thGhost'],consignee_name:['#f_name'],consignee_address:['#f_address'],phones:['#phones input','#addPhone','#phones .rm']};
 function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>document.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}
 document.querySelectorAll('.skip').forEach(cb=>{cb.addEventListener('change',()=>applySkip(cb));applySkip(cb)});
 </script>{% endblock %}

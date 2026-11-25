@@ -328,6 +328,12 @@ def complete_upload(upload_id):
     return details_form([upload_id])
 
 
+@app.route("/manual", methods=["GET", "POST"])
+def manual_entry():
+    """Enter every detail by hand instead of uploading an E-Way Bill PDF."""
+    return details_form([], manual=True)
+
+
 @app.route("/uploads/complete", methods=["GET", "POST"])
 def complete_uploads():
     try:
@@ -340,20 +346,28 @@ def complete_uploads():
 SKIPPABLE = {"consignee_name", "consignee_address", "through", "invoice_value", "phones"}
 
 
-def details_form(ids):
-    """Show everything read from the E-Way Bill(s) in one editable form before the letters are made."""
-    ups = load_uploads(ids)
-    err = party_mismatch(ups)
-    if err:
-        flash(err, "danger")
-        return redirect(url_for("dashboard"))
-    auto, phones, bills = merged_auto(ups)
+def details_form(ids, manual=False):
+    """Show everything read from the E-Way Bill(s) in one editable form before the letters are made.
+    With manual=True nothing is uploaded: the user types every detail."""
+    if manual:
+        ups, phones, bills = [], [], []
+        auto = {"letter_date": datetime.now().strftime("%Y-%m-%d"), "parcels": "", "consignee_name": "",
+                "consignee_address": "", "consignee_mobile": "", "booking": "", "through": "", "ewb_no": "",
+                "doc_no": "", "invoice_no": "", "invoice_value": "", "warnings": [], "missing": [],
+                "_address_from_place": False}
+    else:
+        ups = load_uploads(ids)
+        err = party_mismatch(ups)
+        if err:
+            flash(err, "danger")
+            return redirect(url_for("dashboard"))
+        auto, phones, bills = merged_auto(ups)
     d = datetime.strptime(auto["letter_date"], "%Y-%m-%d") if auto["letter_date"] else None
     values = {
         "consignee_name": auto["consignee_name"], "consignee_address": auto["consignee_address"],
         "letter_date": d.strftime("%d/%m/%Y") if d else "", "parcels": auto["parcels"],
         "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
-        "through": auto["through"], "phones": phones, "booking": "",
+        "through": auto["through"], "phones": phones, "booking": "", "doc_no": "", "ewb_no": "",
     }
     errors, skips = {}, set()
     if request.method == "POST":
@@ -362,7 +376,7 @@ def details_form(ids):
         # every field must be filled, unless the user ticks "Not needed" for it
         skips = {k for k in SKIPPABLE if f.get("skip_" + k)}
         values.update(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
-                      parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through"), booking=clean("booking"),
+                      parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through").upper(), booking=clean("booking"),
                       consignee_address="\n".join(l.strip() for l in f.get("consignee_address", "").splitlines() if l.strip()))
         values["phones"] = [p.strip() for p in f.getlist("phone") if p.strip()]
         for k in skips:
@@ -376,6 +390,8 @@ def details_form(ids):
                 out[k] = values[k]
             else:
                 errors[k] = msg
+        if "through" not in skips and values["through"]:
+            db.remember_transporter(values["through"])
         values["booking"] = values["booking"].upper()
         db.remember_booking(values["booking"])   # remembered even if the letters are not created yet
         out["booking"] = values["booking"]   # optional: typed by the user, left out of the letters if empty
@@ -413,7 +429,7 @@ def details_form(ids):
         if not errors:
             auto.update(out)
             return finish_upload(ups, auto)
-    return render_template("complete.html", ups=ups, bills=bills, errors=errors, values=values, skips=skips, active="dashboard")
+    return render_template("complete.html", manual=manual, ups=ups, bills=bills, errors=errors, values=values, skips=skips, active="dashboard")
 
 
 def parse_bill_date(text):
@@ -486,15 +502,16 @@ def ewb_of(fields):
 def save_document(ups, data):
     """Render both letters and store them. ``ups`` are the uploaded E-Way Bills behind this document.
     Returns (doc_id, warning)."""
-    up = ups[0]
+    up = ups[0] if ups else None
     data["upload_ids"] = [u["id"] for u in ups]
     ctx, outward_html, from_html = build_documents(data)
     snapshot = json.dumps({**data, "ctx": ctx})
     with db.connect() as c:
         cur = c.execute("""INSERT INTO documents(upload_id,ewb_no,receiver_name,invoice_value,parcels,
                            original_pdf,data_json,outward_html,from_html) VALUES(?,?,?,?,?,?,?,?,?)""",
-                        (up["id"], data["ewb_no"], data["consignee_name"] or "(name not found)",
-                         data["invoice_value"] or None, int(data["parcels"]), ", ".join(u["original_name"] for u in ups),
+                        (up["id"] if up else None, data["ewb_no"], data["consignee_name"] or "(name not found)",
+                         data["invoice_value"] or None, int(data["parcels"]),
+                         ", ".join(u["original_name"] for u in ups) or "Entered manually",
                          snapshot, outward_html, from_html))
         new_id = cur.lastrowid
     return new_id, None
@@ -613,7 +630,7 @@ def pdf_document(doc_id, which):
             # print order: From letter, Outward letter, then the original E-Way Bill
             parts = ([letters.fragment_to_pdf(doc["from_html"])] * copy_count("from_n")
                      + [letters.fragment_to_pdf(doc["outward_html"])] * copy_count("out_n"))
-            ids = json.loads(doc["data_json"]).get("upload_ids") or [doc["upload_id"]]
+            ids = json.loads(doc["data_json"]).get("upload_ids") or ([doc["upload_id"]] if doc["upload_id"] else [])
             for uid in ids:
                 with db.connect() as c:
                     up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (uid,)).fetchone()
@@ -696,6 +713,21 @@ def bookings():
         if b and b not in hidden and b != "________" and len(b) <= 30 and not re.search(r"[\d,]", b):
             counts[b] = counts.get(b, 0) + 1
     return {"bookings": sorted(counts, key=lambda b: (-counts[b], b))}
+
+
+@app.route("/transporters", methods=["GET", "POST", "DELETE"])
+def transporters():
+    """Suggestions for the 'Address through' box. Kept separate from Booking places."""
+    name = (request.get_json(silent=True) or {}).get("name", "")
+    if request.method == "DELETE":
+        db.forget_transporter(name)
+        return {"ok": True}
+    if request.method == "POST":
+        db.remember_transporter(name)
+        return {"ok": True}
+    with db.connect() as c:
+        rows = c.execute("SELECT name FROM transporters ORDER BY uses DESC, name").fetchall()
+    return {"items": [r[0] for r in rows]}
 
 
 _spell = None

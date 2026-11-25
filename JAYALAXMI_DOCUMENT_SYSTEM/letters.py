@@ -48,6 +48,10 @@ def address_list(addr):
 def address_three(addr, max_lines=None):
     """Address -> one line per comma-separated part (commas kept at the end of each line but the last).
     A trailing pincode is joined to the part before it, so 'State - PINCODE' stays on one line."""
+    typed = [" ".join(l.split()) for l in (addr or "").splitlines() if l.strip(" ,")]
+    if len(typed) > 1 and not (max_lines and len(typed) > max_lines):
+        # the user broke the address into lines by hand: show it exactly like that
+        return [l.rstrip(" ,") + ("," if i < len(typed) - 1 else "") for i, l in enumerate(typed)]
     parts = [p.strip(" ,") for p in re.split(r"[\r\n,]+", addr or "") if p.strip(" ,")]
     if parts and re.fullmatch(r"\d{6}", parts[-1]) and len(parts) > 1:      # '..., Karnataka, 560001'
         parts = parts[:-2] + [f"{parts[-2]} - {parts[-1]}"]
