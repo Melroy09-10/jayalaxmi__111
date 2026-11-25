@@ -135,3 +135,25 @@ table.t tr:last-child td{border-bottom:0}table.t tbody tr:hover{background:#fafb
 .ps-field{align-items:center;gap:4px;padding:0 16px}
 .ps-field span{text-align:center;width:100%}
 .ps-field select{width:92px;height:40px;font-size:1.05rem;font-weight:700;color:#14213D;text-align:center;text-align-last:center;padding:0 26px 0 12px;background-position:right 10px center;cursor:pointer}
+
+/* several parties on one preview page */
+.batch-nav{display:flex;flex-wrap:wrap;gap:8px;padding:2px 24px 14px}
+.batch-nav a{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;background:#fff;border:1px solid #D8D5CC;color:#14213D;font-weight:650;font-size:.86rem;text-decoration:none;box-shadow:0 2px 5px rgba(15,30,60,.07)}
+.batch-nav a:hover{border-color:#B8862B;background:#FFFBF0}
+.party-no{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#E0B85A,#B8862B);color:#fff;font-weight:700;font-size:.82rem;flex:none}
+.doc-card.sub{margin-top:30px;scroll-margin-top:90px}
+.doc-card.sub .doc-head{min-height:60px;padding:12px 24px}
+.doc-card.sub .doc-head h5{font-size:1.35rem}
+.doc-card.sub .party-no{width:34px;height:34px;font-size:1rem;position:relative;z-index:1}
+.doc-card.sub .doc-chips{padding-top:12px}
+.doc-card.sub .doc-tools{padding-bottom:16px}
+.party-papers{margin-top:14px}
+.doc-card.batch .doc-chips,.doc-card.batch .batch-nav,.doc-card.batch .doc-tools{justify-content:center}
+.doc-card.batch .doc-tools{align-items:flex-end;padding-top:10px}
+
+/* each party = ONE card: its header, buttons and both letters together */
+.party-block{margin-top:30px;scroll-margin-top:90px;background:linear-gradient(180deg,#F4F4F6,#FBF9F4);border:1px solid #E6E3DA;border-radius:18px;box-shadow:0 8px 24px rgba(15,30,60,.12);overflow:hidden}
+.party-block .doc-card.sub{margin:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+.party-block .doc-card.sub .doc-head{justify-content:flex-start}
+.party-block .doc-chips,.party-block .doc-tools{justify-content:center}
+.party-block .party-papers{margin:0;padding:6px 20px 22px}

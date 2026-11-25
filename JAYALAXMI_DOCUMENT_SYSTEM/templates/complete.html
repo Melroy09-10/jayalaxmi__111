@@ -1,10 +1,16 @@
 {% extends "base.html" %}{% block body %}
 <div class="mx-auto" style="max-width:760px">
   <div class="page-head"><h5>Enter details</h5>
-    <div class="sub">{% if manual %}Fill in the details below, then create the letters.{% else %}{{ ups|length }} E-Way Bill{{ 's' if ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.{% endif %}</div></div>
+    <div class="sub">{% if manual %}Fill in the details below, then create the letters.
+      {% elif multi %}{{ groups|length }} different parties found. E-Way Bills of the same party are added together; each party gets its own Outward and From letter. Check each party below, then create all the letters.
+      {% else %}{{ groups[0].ups|length }} E-Way Bill{{ 's' if groups[0].ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.{% endif %}</div></div>
 
-  {% if not manual %}<div class="card mb-3">
-    <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+  <form method="post" novalidate>
+  {% for g in groups %}{% set values = g.vals %}{% set errors = g.errors %}{% set skips = g.skips %}{% set bills = g.bills %}
+  <div class="card mb-3 grp" data-group>
+    {% if multi %}<div class="px-4 pt-3 pb-1"><span class="fw-semibold" style="color:var(--bs-primary)">Party {{ loop.index }}</span>
+      <span class="text-secondary"> &middot; {{ g.auto.consignee_name or 'Name not found in the E-Way Bill' }} &middot; {{ bills|length }} E-Way Bill{{ 's' if bills|length > 1 }}</span></div>{% endif %}
+    {% if not manual %}<div class="table-responsive"><table class="table table-sm mb-0 align-middle">
       <thead><tr><th class="ps-3">Doc No</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end pe-3">Amount</th></tr></thead>
       <tbody>
       {% for b in bills %}<tr>
@@ -14,101 +20,87 @@
         <td class="text-end">{{ b.parcels }}</td>
         <td class="text-end pe-3">{{ b.value|inr if b.value != '' else '-' }}</td></tr>
       {% endfor %}
-      </tbody></table></div>
-  </div>{% endif %}
+      </tbody></table></div>{% endif %}
 
-  <form method="post" class="card" novalidate>
     <div class="p-4 row g-3">
       <div class="col-md-4">
-        <label class="form-label" for="f_parcels">Total parcels</label>
-        <input id="f_parcels" name="parcels" value="{{ values.parcels }}" inputmode="numeric" class="form-control{% if errors.parcels %} is-invalid{% endif %}">
+        <label class="form-label">Total parcels</label>
+        <input name="{{ g.p }}parcels" value="{{ values.parcels }}" inputmode="numeric" class="form-control{% if errors.parcels %} is-invalid{% endif %}">
         {% if errors.parcels %}<div class="invalid-feedback">{{ errors.parcels }}</div>{% endif %}
       </div>
       <div class="col-md-4">
-        <label class="form-label" for="f_amount">Total amount</label>
+        <label class="form-label">Total amount</label>
         <div class="input-group"><span class="input-group-text">Rs.</span>
-          <input id="f_amount" name="invoice_value" value="{{ values.invoice_value }}" inputmode="text" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
+          <input data-f="amount" name="{{ g.p }}invoice_value" value="{{ values.invoice_value }}" inputmode="text" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
           {% if errors.invoice_value %}<div class="invalid-feedback">{{ errors.invoice_value }}</div>{% endif %}</div>
-        <div class="hint" id="calcHint">{% if bills|length > 1 %}Sum of all E-Way Bills.{% endif %}</div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_invoice_value" name="skip_invoice_value" value="1" data-for="invoice_value"{% if 'invoice_value' in skips %} checked{% endif %}><label class="form-check-label small" for="s_invoice_value">Not needed</label></div>
+        <div class="hint" data-f="calcHint">{% if bills|length > 1 %}Sum of all E-Way Bills.{% endif %}</div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_invoice_value" value="1" data-for="invoice_value"{% if 'invoice_value' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
       </div>
       <div class="col-md-4">
-        <label class="form-label" for="f_date">Date</label>
-        <input id="f_date" name="letter_date" value="{{ values.letter_date }}" placeholder="DD/MM/YYYY" class="form-control{% if errors.letter_date %} is-invalid{% endif %}">
+        <label class="form-label">Date</label>
+        <input name="{{ g.p }}letter_date" value="{{ values.letter_date }}" placeholder="DD/MM/YYYY" class="form-control{% if errors.letter_date %} is-invalid{% endif %}">
         {% if errors.letter_date %}<div class="invalid-feedback">{{ errors.letter_date }}</div>{% endif %}
       </div>
       <div class="col-12">
-        <label class="form-label" for="f_through">Address through</label>
-        <div class="position-relative" id="th">
-          <div id="thGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
-          <input id="f_through" name="through" value="{{ values.through }}" style="text-transform:uppercase;background:transparent;position:relative" class="form-control{% if errors.through %} is-invalid{% endif %}">
+        <label class="form-label">Address through</label>
+        <div class="position-relative">
+          <div data-f="thGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
+          <input data-f="through" name="{{ g.p }}through" value="{{ values.through }}" style="text-transform:uppercase;background:transparent;position:relative" class="form-control{% if errors.through %} is-invalid{% endif %}">
         </div>
-        {% if errors.through %}<div class="invalid-feedback">{{ errors.through }}</div>{% endif %}
+        {% if errors.through %}<div class="text-danger small mt-1">{{ errors.through }}</div>{% endif %}
         <div class="hint">Transport details from the E-Way Bill.</div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_through" name="skip_through" value="1" data-for="through"{% if 'through' in skips %} checked{% endif %}><label class="form-check-label small" for="s_through">Not needed</label></div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_through" value="1" data-for="through"{% if 'through' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
       </div>
       <div class="col-12">
-        <label class="form-label" for="f_name">Party name</label>
-        <input id="f_name" name="consignee_name" value="{{ values.consignee_name }}" class="form-control{% if errors.consignee_name %} is-invalid{% endif %}">
+        <label class="form-label">Party name</label>
+        <input data-f="name" name="{{ g.p }}consignee_name" value="{{ values.consignee_name }}" class="form-control{% if errors.consignee_name %} is-invalid{% endif %}">
         {% if errors.consignee_name %}<div class="invalid-feedback">{{ errors.consignee_name }}</div>{% endif %}
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_consignee_name" name="skip_consignee_name" value="1" data-for="consignee_name"{% if 'consignee_name' in skips %} checked{% endif %}><label class="form-check-label small" for="s_consignee_name">Not needed</label></div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_consignee_name" value="1" data-for="consignee_name"{% if 'consignee_name' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
       </div>
       <div class="col-12">
-        <label class="form-label" for="f_address">Party address</label>
-        <textarea id="f_address" name="consignee_address" rows="3" data-spellcheck lang="en"class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
+        <label class="form-label">Party address</label>
+        <textarea data-f="address" name="{{ g.p }}consignee_address" rows="3" data-spellcheck lang="en" class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
         {% if errors.consignee_address %}<div class="invalid-feedback">{{ errors.consignee_address }}</div>{% endif %}
-        <div id="spell" class="small mt-1"></div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_consignee_address" name="skip_consignee_address" value="1" data-for="consignee_address"{% if 'consignee_address' in skips %} checked{% endif %}><label class="form-check-label small" for="s_consignee_address">Not needed</label></div>
+        <div data-f="spell" class="small mt-1"></div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_consignee_address" value="1" data-for="consignee_address"{% if 'consignee_address' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
       </div>
       <div class="col-12">
-        <label class="form-label" for="f_booking">Booking <span class="text-muted small">(optional)</span></label>
-        <div class="position-relative" id="bk">
-          <div id="bkGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
-          <input id="f_booking" name="booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase;background:transparent;position:relative" class="form-control">
-          <div id="bkList" class="list-group position-absolute w-100 shadow-sm" style="z-index:20;max-height:220px;overflow:auto;display:none"></div>
+        <label class="form-label">Booking <span class="text-muted small">(optional)</span></label>
+        <div class="position-relative">
+          <div data-f="bkGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
+          <input data-f="booking" name="{{ g.p }}booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase;background:transparent;position:relative" class="form-control">
+          <div data-f="bkList" class="list-group position-absolute w-100 shadow-sm" style="z-index:20;max-height:220px;overflow:auto;display:none"></div>
         </div>
       </div>
       <div class="col-12">
         <label class="form-label">Phone numbers</label>
-        <div id="phones">
-          {% for p in values.phones %}
+        <div data-f="phones">
+          {% for ph in values.phones %}
           <div class="input-group mb-2 phone-row">
-            <input name="phone" value="{{ p }}" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control">
+            <input name="{{ g.p }}phone" value="{{ ph }}" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control">
             <button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button></div>
           {% endfor %}
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" id="addPhone"><i class="bi bi-plus-lg me-1"></i>Add phone number</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-f="addPhone"><i class="bi bi-plus-lg me-1"></i>Add phone number</button>
         <div class="hint">Add as many as needed. Each must have exactly 10 digits.</div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" id="s_phones" name="skip_phones" value="1" data-for="phones"{% if 'phones' in skips %} checked{% endif %}><label class="form-check-label small" for="s_phones">Not needed</label></div>
+        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_phones" value="1" data-for="phones"{% if 'phones' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
         {% if errors.phones %}<div class="text-danger small mt-1">{{ errors.phones }}</div>{% endif %}
       </div>
     </div>
-    <div class="p-3 px-4 border-top d-flex justify-content-between align-items-center" style="background:#FAFBFC;border-radius:0 0 var(--radius) var(--radius)">
+  </div>
+  {% endfor %}
+  <div class="card">
+    <div class="p-3 px-4 d-flex justify-content-between align-items-center" style="background:#FAFBFC;border-radius:var(--radius)">
       <a class="btn btn-ghost" href="{{ url_for('dashboard') }}"><i class="bi bi-arrow-left me-1"></i>Cancel</a>
-      <button class="btn btn-gold px-4">Create letters<i class="bi bi-arrow-right ms-2"></i></button>
+      <button class="btn btn-gold px-4">Create {{ 'all letters' if multi else 'letters' }}<i class="bi bi-arrow-right ms-2"></i></button>
     </div>
+  </div>
   </form>
 </div>
 {% endblock %}
 {% block scripts %}<script>
-const box=document.getElementById('phones');
-function row(v){const d=document.createElement('div');d.className='input-group mb-2 phone-row';
-  d.innerHTML='<input name="phone" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control"><button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button>';
-  d.querySelector('input').value=v||'';box.appendChild(d);return d}
-document.getElementById('addPhone').addEventListener('click',()=>row('').querySelector('input').focus());
-box.addEventListener('click',e=>{const b=e.target.closest('.rm');if(b)b.closest('.phone-row').remove()});
-box.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,10)});
-const sp=document.getElementById('spell'),ad=document.getElementById('f_address');let st;
-function chk(){clearTimeout(st);st=setTimeout(()=>{if(ad.disabled){sp.innerHTML='';return}
-  fetch('/spellcheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:ad.value})}).then(r=>r.json()).then(d=>{
-    sp.innerHTML='';if(!d.place_ok){const w=document.createElement('div');w.className='text-danger';w.textContent='No city, state or country found in this address.';sp.appendChild(w)}if(!d.errors.length)return;
-    const t=document.createElement('div');t.className='text-danger';t.textContent='Check spelling:';sp.appendChild(t);
-    d.errors.forEach(e=>{const r=document.createElement('div');r.className='text-danger';r.append(e.word+(e.suggestions.length?' → ':' (no suggestion)'));
-      e.suggestions.forEach(w=>{const b=document.createElement('button');b.type='button';b.className='btn btn-ghost btn-sm py-0 ms-1';b.textContent=w;
-        b.onclick=()=>{ad.value=ad.value.replace(/[A-Za-z']+/g,m=>m===e.word?(m===m.toUpperCase()?w.toUpperCase():w):m);chk()};r.appendChild(b)});sp.appendChild(r)})}).catch(()=>{})},400)}
-ad.addEventListener('input',chk);chk();
 function suggest(o){ // o: input, ghost, list (optional: no dropdown without it), url, key, upper
-  const inp=document.getElementById(o.input),gh=document.getElementById(o.ghost),ls=o.list?document.getElementById(o.list):null;let items=[];
+  const inp=o.input,gh=o.ghost,ls=o.list||null;let items=[];
   const norm=v=>o.upper?v.toUpperCase():v;
   const post=(m,n)=>fetch(o.url,{method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})}).catch(()=>{});
   fetch(o.url).then(r=>r.json()).then(d=>{items=d[o.key];ghost()}).catch(()=>{});
@@ -129,18 +121,46 @@ function suggest(o){ // o: input, ghost, list (optional: no dropdown without it)
   inp.addEventListener('blur',()=>{if(ls)ls.style.display='none';ghost();const v=inp.value.trim();if(v)post('POST',v)});
   inp.addEventListener('keydown',e=>{const m=match();if(m&&(e.key==='Tab'||e.key==='ArrowRight'||e.key==='Enter')&&inp.selectionStart===inp.value.length){e.preventDefault();inp.value=norm(m);ghost()}});
 }
-suggest({input:'f_booking',ghost:'bkGhost',list:'bkList',url:'/bookings',key:'bookings',upper:true});
-suggest({input:'f_through',ghost:'thGhost',url:'/transporters',key:'items',upper:true});
-document.getElementById('f_through').addEventListener('input',function(){const a=this.selectionStart,b=this.selectionEnd;this.value=this.value.toUpperCase();this.setSelectionRange(a,b)});
-const am=document.getElementById('f_amount'),ch=document.getElementById('calcHint'),chDef=ch.textContent;
 function calc(t){t=t.replace(/,/g,'').replace(/[x×]/gi,'*').replace(/÷/g,'/').trim();
   if(!t||!/^[\d+\-*\/().\s]+$/.test(t)||!/[+\-*\/]/.test(t.replace(/^\s*-/,'')))return null;
   try{const v=Function('"use strict";return ('+t+')')();return Number.isFinite(v)?Math.round(v*100)/100:null}catch(e){return null}}
-am.addEventListener('input',()=>{const v=calc(am.value);ch.textContent=v===null?chDef:'= '+v.toFixed(2)+'  (press Enter or click away to use it)'});
-function applyCalc(){const v=calc(am.value);if(v!==null){am.value=v.toFixed(2);ch.textContent=chDef}return v!==null}
-am.addEventListener('blur',applyCalc);
-am.addEventListener('keydown',e=>{if(e.key==='Enter'&&applyCalc())e.preventDefault()});
-const fieldsOf={invoice_value:['#f_amount'],through:['#f_through','#thGhost'],consignee_name:['#f_name'],consignee_address:['#f_address'],phones:['#phones input','#addPhone','#phones .rm']};
-function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>document.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}
-document.querySelectorAll('.skip').forEach(cb=>{cb.addEventListener('change',()=>applySkip(cb));applySkip(cb)});
+
+function initGroup(root){
+  const q=n=>root.querySelector('[data-f='+n+']');
+  // phones
+  const box=q('phones');
+  function row(v){const d=document.createElement('div');d.className='input-group mb-2 phone-row';
+    d.innerHTML='<input name="'+box.dataset.name+'" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control"><button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button>';
+    d.querySelector('input').value=v||'';box.appendChild(d);return d}
+  box.dataset.name=root.querySelector('[data-for=phones]').name.replace('skip_phones','phone');
+  q('addPhone').addEventListener('click',()=>row('').querySelector('input').focus());
+  box.addEventListener('click',e=>{const b=e.target.closest('.rm');if(b)b.closest('.phone-row').remove()});
+  box.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,10)});
+  // address spell check
+  const sp=q('spell'),ad=q('address');let st;
+  function chk(){clearTimeout(st);st=setTimeout(()=>{if(ad.disabled){sp.innerHTML='';return}
+    fetch('/spellcheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:ad.value})}).then(r=>r.json()).then(d=>{
+      sp.innerHTML='';if(!d.place_ok){const w=document.createElement('div');w.className='text-danger';w.textContent='No city, state or country found in this address.';sp.appendChild(w)}if(!d.errors.length)return;
+      const t=document.createElement('div');t.className='text-danger';t.textContent='Check spelling:';sp.appendChild(t);
+      d.errors.forEach(e=>{const r=document.createElement('div');r.className='text-danger';r.append(e.word+(e.suggestions.length?' → ':' (no suggestion)'));
+        e.suggestions.forEach(w=>{const b=document.createElement('button');b.type='button';b.className='btn btn-ghost btn-sm py-0 ms-1';b.textContent=w;
+          b.onclick=()=>{ad.value=ad.value.replace(/[A-Za-z']+/g,m=>m===e.word?(m===m.toUpperCase()?w.toUpperCase():w):m);chk()};r.appendChild(b)});sp.appendChild(r)})}).catch(()=>{})},400)}
+  ad.addEventListener('input',chk);chk();
+  // booking / address-through suggestions
+  suggest({input:q('booking'),ghost:q('bkGhost'),list:q('bkList'),url:'/bookings',key:'bookings',upper:true});
+  const th=q('through');
+  suggest({input:th,ghost:q('thGhost'),url:'/transporters',key:'items',upper:true});
+  th.addEventListener('input',function(){const a=this.selectionStart,b=this.selectionEnd;this.value=this.value.toUpperCase();this.setSelectionRange(a,b)});
+  // amount calculator
+  const am=q('amount'),ch=q('calcHint'),chDef=ch.textContent;
+  am.addEventListener('input',()=>{const v=calc(am.value);ch.textContent=v===null?chDef:'= '+v.toFixed(2)+'  (press Enter or click away to use it)'});
+  function applyCalc(){const v=calc(am.value);if(v!==null){am.value=v.toFixed(2);ch.textContent=chDef}return v!==null}
+  am.addEventListener('blur',applyCalc);
+  am.addEventListener('keydown',e=>{if(e.key==='Enter'&&applyCalc())e.preventDefault()});
+  // "Not needed" ticks
+  const fieldsOf={invoice_value:['[data-f=amount]'],through:['[data-f=through]','[data-f=thGhost]'],consignee_name:['[data-f=name]'],consignee_address:['[data-f=address]'],phones:['[data-f=phones] input','[data-f=addPhone]','[data-f=phones] .rm']};
+  function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>root.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}
+  root.querySelectorAll('.skip').forEach(cb=>{cb.addEventListener('change',()=>applySkip(cb));applySkip(cb)});
+}
+document.querySelectorAll('[data-group]').forEach(initGroup);
 </script>{% endblock %}

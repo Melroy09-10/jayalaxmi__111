@@ -232,11 +232,6 @@ def upload():
             ids.append(up_id)
     if not ids:
         return redirect(url_for("dashboard"))
-    if len(ids) > 1:
-        err = party_mismatch(load_uploads(ids))
-        if err:
-            flash(err, "danger")
-            return redirect(url_for("dashboard"))
     if len(ids) == 1:
         return redirect(url_for("complete_upload", upload_id=ids[0]))
     return redirect(url_for("complete_uploads", ids=",".join(map(str, ids))))
@@ -294,8 +289,8 @@ def party_mismatch(ups):
     return None
 
 
-def finish_upload(ups, data):
-    """Build the letters from the (user-confirmed) merged data."""
+def make_document(ups, data):
+    """Build the letters from the (user-confirmed) data of one party. Returns (doc_id, error text or None)."""
     data["warnings"] = [w for w in data["warnings"] if "Parcel count" not in w and "mobile" not in w.lower()]
     with db.connect() as c:
         for up in ups:
@@ -308,10 +303,36 @@ def finish_upload(ups, data):
     try:
         doc_id, warn = save_document(ups, data)
     except (ValueError, sqlite3.Error, OSError) as e:
-        return upload_error(f"Could not generate the letters: {e}")
+        return None, f"Could not generate the letters: {e}"
     if warn:
         flash(warn, "warning")
-    return redirect(url_for("view_document", doc_id=doc_id))
+    return doc_id, None
+
+
+def finish_groups(groups):
+    """One pair of letters per party. A single party opens its letters; several parties open a summary list."""
+    made = []
+    for g in groups:
+        g["auto"].update(g["out"])
+        doc_id, err = make_document(g["ups"], g["auto"])
+        if err:
+            flash(f"{g['auto']['consignee_name'] or 'Party'}: {err}", "danger")
+            if not made:
+                return redirect(url_for("dashboard"))
+            break
+        made.append(doc_id)
+    if len(made) == 1:
+        return redirect(url_for("view_document", doc_id=made[0]))
+    return redirect(url_for("created_documents", ids=",".join(map(str, made))))
+
+
+@app.route("/documents/created")
+def created_documents():
+    try:
+        ids = [int(x) for x in request.args.get("ids", "").split(",") if x.strip()]
+    except ValueError:
+        abort(404)
+    return render_template("preview.html", items=[doc_item(load_doc(i)) for i in ids], active="dashboard")
 
 
 def parse_form_date(text):
@@ -346,90 +367,110 @@ def complete_uploads():
 SKIPPABLE = {"consignee_name", "consignee_address", "through", "invoice_value", "phones"}
 
 
-def details_form(ids, manual=False):
-    """Show everything read from the E-Way Bill(s) in one editable form before the letters are made.
-    With manual=True nothing is uploaded: the user types every detail."""
-    if manual:
-        ups, phones, bills = [], [], []
-        auto = {"letter_date": datetime.now().strftime("%Y-%m-%d"), "parcels": "", "consignee_name": "",
-                "consignee_address": "", "consignee_mobile": "", "booking": "", "through": "", "ewb_no": "",
-                "doc_no": "", "invoice_no": "", "invoice_value": "", "warnings": [], "missing": [],
-                "_address_from_place": False}
+def party_key(name):
+    return " ".join((name or "").upper().split())
+
+
+def group_uploads(ups):
+    """E-Way Bills of the same party form one group (one pair of letters); another party is a separate group."""
+    groups = {}
+    for up in ups:
+        name = auto_data(json.loads(up["extracted_json"]))["consignee_name"]
+        groups.setdefault(party_key(name) or f"__unnamed{up['id']}", []).append(up)
+    return list(groups.values())
+
+
+def read_group_form(f, p, auto):
+    """Read and check one party's form fields (names start with prefix p). Returns (values, errors, skips, out)."""
+    clean = lambda k: " ".join(f.get(p + k, "").split())
+    errors, out = {}, {}
+    # every field must be filled, unless the user ticks "Not needed" for it
+    skips = {k for k in SKIPPABLE if f.get(p + "skip_" + k)}
+    values = dict(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
+                  parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through").upper(),
+                  booking=clean("booking"),
+                  consignee_address="\n".join(l.strip() for l in f.get(p + "consignee_address", "").splitlines() if l.strip()))
+    values["phones"] = [x.strip() for x in f.getlist(p + "phone") if x.strip()]
+    for k in skips:
+        values[k] = [] if k == "phones" else ""
+    fill = "Please fill this in, or tick 'Not needed'."
+    for k in ("consignee_name", "consignee_address", "through"):
+        if k in skips:
+            out[k] = ""
+        elif values[k]:
+            out[k] = values[k]
+        else:
+            errors[k] = fill
+    if "through" not in skips and values["through"]:
+        db.remember_transporter(values["through"])
+    values["booking"] = values["booking"].upper()
+    db.remember_booking(values["booking"])   # remembered even if the letters are not created yet
+    out["booking"] = values["booking"]   # optional: typed by the user, left out of the letters if empty
+    dt = parse_form_date(values["letter_date"])
+    if dt:
+        out["letter_date"] = dt.strftime("%Y-%m-%d")
     else:
-        ups = load_uploads(ids)
-        err = party_mismatch(ups)
-        if err:
-            flash(err, "danger")
-            return redirect(url_for("dashboard"))
-        auto, phones, bills = merged_auto(ups)
-    d = datetime.strptime(auto["letter_date"], "%Y-%m-%d") if auto["letter_date"] else None
-    values = {
-        "consignee_name": auto["consignee_name"], "consignee_address": auto["consignee_address"],
-        "letter_date": d.strftime("%d/%m/%Y") if d else "", "parcels": auto["parcels"],
-        "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
-        "through": auto["through"], "phones": phones, "booking": "", "doc_no": "", "ewb_no": "",
-    }
-    errors, skips = {}, set()
+        errors["letter_date"] = "Enter the date as DD/MM/YYYY, e.g. 15/11/2026"
+    if values["parcels"].isdigit() and int(values["parcels"]) > 0:
+        out["parcels"] = int(values["parcels"])
+    else:
+        errors["parcels"] = "Enter a whole number, e.g. 5"
+    if "invoice_value" in skips:
+        out["invoice_value"] = ""
+    elif not values["invoice_value"]:
+        errors["invoice_value"] = fill
+    else:
+        try:
+            out["invoice_value"] = round(float(values["invoice_value"].replace(",", "")), 2)
+            if out["invoice_value"] <= 0:
+                raise ValueError
+        except ValueError:
+            errors["invoice_value"] = "Enter the amount as a number, e.g. 157710.00"
+    cleaned = []
+    for ph in values["phones"]:
+        digits = re.sub(r"[\s\-()]", "", ph)
+        if not MOBILE_OK.match(digits):
+            errors["phones"] = f"'{ph}' is not valid. Each phone number must contain exactly 10 digits."
+            break
+        if digits not in cleaned:
+            cleaned.append(digits)
+    if "phones" not in skips and not values["phones"]:
+        errors["phones"] = "Add a phone number, or tick 'Not needed'."
+    out["consignee_mobile"] = ", ".join(cleaned)
+    return values, errors, skips, out
+
+
+def details_form(ids, manual=False):
+    """One editable details form per party, shown before the letters are made.
+    E-Way Bills of the same party are merged into one form; another party gets its own form and its own letters.
+    With manual=True nothing is uploaded: the user types every detail."""
+    groups_ups = [[]] if manual else group_uploads(load_uploads(ids))
+    multi = len(groups_ups) > 1
+    groups = []
+    for i, gu in enumerate(groups_ups):
+        if manual:
+            phones, bills = [], []
+            auto = {"letter_date": datetime.now().strftime("%Y-%m-%d"), "parcels": "", "consignee_name": "",
+                    "consignee_address": "", "consignee_mobile": "", "booking": "", "through": "", "ewb_no": "",
+                    "doc_no": "", "invoice_no": "", "invoice_value": "", "warnings": [], "missing": [],
+                    "_address_from_place": False}
+        else:
+            auto, phones, bills = merged_auto(gu)
+        d = datetime.strptime(auto["letter_date"], "%Y-%m-%d") if auto["letter_date"] else None
+        values = {
+            "consignee_name": auto["consignee_name"], "consignee_address": auto["consignee_address"],
+            "letter_date": d.strftime("%d/%m/%Y") if d else "", "parcels": auto["parcels"],
+            "invoice_value": "%.2f" % auto["invoice_value"] if auto["invoice_value"] != "" else "",
+            "through": auto["through"], "phones": phones, "booking": "",
+        }
+        groups.append({"i": i, "p": f"g{i}_" if multi else "", "ups": gu, "auto": auto, "bills": bills,
+                       "vals": values, "errors": {}, "skips": set(), "out": {}})
     if request.method == "POST":
-        f = request.form
-        clean = lambda k: " ".join(f.get(k, "").split())
-        # every field must be filled, unless the user ticks "Not needed" for it
-        skips = {k for k in SKIPPABLE if f.get("skip_" + k)}
-        values.update(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
-                      parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through").upper(), booking=clean("booking"),
-                      consignee_address="\n".join(l.strip() for l in f.get("consignee_address", "").splitlines() if l.strip()))
-        values["phones"] = [p.strip() for p in f.getlist("phone") if p.strip()]
-        for k in skips:
-            values[k] = [] if k == "phones" else ""
-        out = {}
-        fill = "Please fill this in, or tick 'Not needed'."
-        for k, msg in (("consignee_name", fill), ("consignee_address", fill), ("through", fill)):
-            if k in skips:
-                out[k] = ""
-            elif values[k]:
-                out[k] = values[k]
-            else:
-                errors[k] = msg
-        if "through" not in skips and values["through"]:
-            db.remember_transporter(values["through"])
-        values["booking"] = values["booking"].upper()
-        db.remember_booking(values["booking"])   # remembered even if the letters are not created yet
-        out["booking"] = values["booking"]   # optional: typed by the user, left out of the letters if empty
-        dt = parse_form_date(values["letter_date"])
-        if dt:
-            out["letter_date"] = dt.strftime("%Y-%m-%d")
-        else:
-            errors["letter_date"] = "Enter the date as DD/MM/YYYY, e.g. 15/11/2026"
-        if values["parcels"].isdigit() and int(values["parcels"]) > 0:
-            out["parcels"] = int(values["parcels"])
-        else:
-            errors["parcels"] = "Enter a whole number, e.g. 5"
-        if "invoice_value" in skips:
-            out["invoice_value"] = ""
-        elif not values["invoice_value"]:
-            errors["invoice_value"] = fill
-        else:
-            try:
-                out["invoice_value"] = round(float(values["invoice_value"].replace(",", "")), 2)
-                if out["invoice_value"] <= 0:
-                    raise ValueError
-            except ValueError:
-                errors["invoice_value"] = "Enter the amount as a number, e.g. 157710.00"
-        cleaned = []
-        for p in values["phones"]:
-            digits = re.sub(r"[\s\-()]", "", p)
-            if not MOBILE_OK.match(digits):
-                errors["phones"] = f"'{p}' is not valid. Each phone number must contain exactly 10 digits."
-                break
-            if digits not in cleaned:
-                cleaned.append(digits)
-        if "phones" not in skips and not values["phones"]:
-            errors["phones"] = "Add a phone number, or tick 'Not needed'."
-        out["consignee_mobile"] = ", ".join(cleaned)
-        if not errors:
-            auto.update(out)
-            return finish_upload(ups, auto)
-    return render_template("complete.html", manual=manual, ups=ups, bills=bills, errors=errors, values=values, skips=skips, active="dashboard")
+        for g in groups:
+            g["vals"], g["errors"], g["skips"], g["out"] = read_group_form(request.form, g["p"], g["auto"])
+        if not any(g["errors"] for g in groups):
+            return finish_groups(groups)
+    return render_template("complete.html", manual=manual, groups=groups, multi=multi, active="dashboard")
 
 
 def parse_bill_date(text):
@@ -544,14 +585,14 @@ def set_mobile(doc_id):
     return redirect(url_for("view_document", doc_id=doc_id))
 
 
+def doc_item(doc):
+    return {"doc": doc, "doc_no": json.loads(doc["data_json"]).get("doc_no", "")}
+
+
 @app.route("/document/<int:doc_id>")
 def view_document(doc_id):
     """Read-only: opening a document never creates or modifies history."""
-    doc = load_doc(doc_id)
-    warnings = json.loads(doc["data_json"]).get("warnings", [])
-    mobile = json.loads(doc["data_json"]).get("consignee_mobile", "")
-    doc_no = json.loads(doc["data_json"]).get("doc_no", "")
-    return render_template("preview.html", doc=doc, doc_no=doc_no, warnings=warnings, mobile=mobile, active="dashboard")
+    return render_template("preview.html", items=[doc_item(load_doc(doc_id))], active="dashboard")
 
 
 def copy_count(name):
@@ -622,24 +663,44 @@ def print_document(doc_id, which):
     return letters.wrap_print_page(fragments_for(doc, which), f"{doc['receiver_name']} - {which}")
 
 
+def all_blob(doc):
+    """Print order for one party: From letter, Outward letter, then the original E-Way Bill(s).
+    Raises ValueError if an original file is missing."""
+    parts = ([letters.fragment_to_pdf(doc["from_html"])] * copy_count("from_n")
+             + [letters.fragment_to_pdf(doc["outward_html"])] * copy_count("out_n"))
+    ids = json.loads(doc["data_json"]).get("upload_ids") or ([doc["upload_id"]] if doc["upload_id"] else [])
+    for uid in ids:
+        with db.connect() as c:
+            up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (uid,)).fetchone()
+        original = safe_child(config.UPLOAD_DIR, up["stored_name"]) if up else None
+        if not original or not original.exists():
+            raise ValueError("An original E-Way Bill file is no longer available, so all of them cannot be printed.")
+        parts.append(original.read_bytes())
+    return letters.merge_pdfs(parts)
+
+
+@app.route("/documents/print")
+def print_documents():
+    """Every party's letters in one PDF, party after party (each: From, Outward, E-Way Bill)."""
+    try:
+        ids = [int(x) for x in request.args.get("ids", "").split(",") if x.strip()]
+    except ValueError:
+        abort(404)
+    try:
+        blob = letters.merge_pdfs([all_blob(load_doc(i)) for i in ids])
+    except ValueError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("created_documents", ids=",".join(map(str, ids))))
+    return send_file(io.BytesIO(blob), mimetype="application/pdf", as_attachment=not request.args.get("view"),
+                     download_name="all_letters.pdf")
+
+
 @app.route("/document/<int:doc_id>/pdf/<which>")
 def pdf_document(doc_id, which):
     doc = load_doc(doc_id)
     try:
         if which == "all":
-            # print order: From letter, Outward letter, then the original E-Way Bill
-            parts = ([letters.fragment_to_pdf(doc["from_html"])] * copy_count("from_n")
-                     + [letters.fragment_to_pdf(doc["outward_html"])] * copy_count("out_n"))
-            ids = json.loads(doc["data_json"]).get("upload_ids") or ([doc["upload_id"]] if doc["upload_id"] else [])
-            for uid in ids:
-                with db.connect() as c:
-                    up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (uid,)).fetchone()
-                original = safe_child(config.UPLOAD_DIR, up["stored_name"]) if up else None
-                if not original or not original.exists():
-                    flash("An original E-Way Bill file is no longer available, so all of them cannot be printed.", "danger")
-                    return redirect(url_for("view_document", doc_id=doc_id))
-                parts.append(original.read_bytes())
-            blob = letters.merge_pdfs(parts)
+            blob = all_blob(doc)
         else:
             pages = {}   # render each distinct letter once, then repeat it for the copies
             blob = letters.merge_pdfs([pages.setdefault(f, letters.fragment_to_pdf(f)) for f in fragments_for(doc, which)])

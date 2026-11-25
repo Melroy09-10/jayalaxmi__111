@@ -16,7 +16,7 @@
 </div>
 <div class="card hero mb-4 d-none" id="uploadCard">
   <h5 class="mb-1">Upload E-Way Bill PDFs</h5>
-  <div class="text-secondary mb-4">Upload one or more E-Way Bill PDFs. The details are read automatically and both letters are generated for you. <a href="#" id="back">&larr; Back</a></div>
+  <div class="text-secondary mb-4">Upload one or more E-Way Bills. Bills of the same party are added together into one pair of letters; a different party gets its own separate letters. <a href="#" id="back">&larr; Back</a></div>
   <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" id="upForm">
     <input type="file" name="pdf" accept="application/pdf,.pdf" multiple class="d-none" id="pdfInput">
     <label class="dropzone d-block" id="drop" style="cursor:pointer" for="pdfInput">

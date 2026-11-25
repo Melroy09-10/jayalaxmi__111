@@ -1,40 +1,87 @@
-{% extends "base.html" %}{% block body %}
-<div class="doc-card no-print">
-  <div class="doc-head">
-    <i class="bi bi-file-earmark-text doc-ico"></i><span class="doc-bar"></span><h5>{{ doc.receiver_name }}</h5>
-    <svg class="doc-swoosh" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C90 66 170 52 230 28 C262 14 285 6 300 4 L300 20 C270 22 250 34 215 48 C160 66 80 70 0 70Z" fill="#C9A24F"/></svg>
-  </div>
-  <div class="doc-chips">
+{% extends "base.html" %}
+{% macro actions(doc, all_label) %}
+    <a class="btn btn-gold" target="_blank" data-copies href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>{{ all_label }}</a>
+    <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit Letter</a>
+    <button class="btn btn-ghost" data-print="from" data-doc="{{ doc.id }}"><i class="bi bi-printer me-1"></i>From</button>
+    <button class="btn btn-ghost" data-print="outward" data-doc="{{ doc.id }}"><i class="bi bi-printer me-1"></i>Outward</button>
+    <button class="btn btn-ghost" data-print="both" data-doc="{{ doc.id }}"><i class="bi bi-printer me-1"></i>Both Letters</button>
+    <div class="btn-group"><button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>PDF</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" data-copies href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
+        <li><a class="dropdown-item" data-copies href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
+        <li><a class="dropdown-item" data-copies href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
+        <li><a class="dropdown-item" data-copies href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
+{% endmacro %}
+{% macro chips(doc, doc_no) %}
     <span class="pchip c-blue"><i class="bi bi-box-seam"></i>{{ doc.parcels }} Parcel(s)</span>
     <span class="pchip c-green"><i class="bi bi-currency-rupee"></i>{{ doc.invoice_value|inr }}</span>
     {% if doc_no %}<span class="pchip c-lav"><i class="bi bi-file-earmark-text"></i>Doc No. {{ doc_no }}</span>{% endif %}
     <span class="pchip c-cream"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
-  </div>
-  <div class="doc-tools">
-    <div class="ps-title"><i class="bi bi-printer"></i>Print Settings</div>
-    <label class="ps-field"><span>From</span><select id="nFrom" class="form-select form-select-sm" title="Copies of the From letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
-    <label class="ps-field"><span>Outward</span><select id="nOut" class="form-select form-select-sm" title="Copies of the Outward letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
-    <label class="ps-field"><span>Copies</span><select id="nSets" class="form-select form-select-sm" title="Number of full sets">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
-    <span class="ps-sep"></span>
-    <a class="btn btn-gold" target="_blank" href="{{ url_for('pdf_document', doc_id=doc.id, which='all', view=1) }}" title="From letter, Outward letter, then the E-Way Bill"><i class="bi bi-printer-fill me-2"></i>Print All</a>
-    <a class="btn btn-ghost" href="{{ url_for('edit_document_format', doc_id=doc.id) }}"><i class="bi bi-pencil-square me-1"></i>Edit Letter</a>
-    <button class="btn btn-ghost" data-print="from"><i class="bi bi-printer me-1"></i>From</button>
-    <button class="btn btn-ghost" data-print="outward"><i class="bi bi-printer me-1"></i>Outward</button>
-    <button class="btn btn-ghost" data-print="both"><i class="bi bi-printer me-1"></i>Both Letters</button>
-    <div class="btn-group"><button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>PDF</button>
-      <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='outward') }}">Download Outward PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='from') }}">Download From PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='both') }}">Download Both as PDF</a></li>
-        <li><a class="dropdown-item" href="{{ url_for('pdf_document', doc_id=doc.id, which='all') }}">Download All 3 (From, Outward, E-Way Bill)</a></li></ul></div>
-  </div>
-</div>
+{% endmacro %}
+{% macro papers(doc) %}
 <div class="row g-3">
   {% for title, html, which in [('From Letter', doc.from_html, 'from'), ('Outward Letter', doc.outward_html, 'outward')] %}
   <div class="col-xl-6"><div class="paper-card"><div class="paper-label no-print"><i class="bi bi-file-earmark-text"></i>{{ title }}<a class="expand" target="_blank" href="{{ url_for('print_document', doc_id=doc.id, which=which) }}" title="Open full size"><i class="bi bi-arrows-angle-expand"></i></a></div>
     <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div></div>
   {% endfor %}
 </div>
+{% endmacro %}
+{% macro print_settings() %}
+    <div class="ps-title"><i class="bi bi-printer"></i>Print Settings</div>
+    <label class="ps-field"><span>From</span><select id="nFrom" class="form-select form-select-sm" title="Copies of the From letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
+    <label class="ps-field"><span>Outward</span><select id="nOut" class="form-select form-select-sm" title="Copies of the Outward letter">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
+    <label class="ps-field"><span>Copies</span><select id="nSets" class="form-select form-select-sm" title="Number of full sets">{% for i in range(1,51) %}<option>{{ i }}</option>{% endfor %}</select></label>
+    <span class="ps-sep"></span>
+{% endmacro %}
+{% set swoosh %}<svg class="doc-swoosh" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C90 66 170 52 230 28 C262 14 285 6 300 4 L300 20 C270 22 250 34 215 48 C160 66 80 70 0 70Z" fill="#C9A24F"/></svg>{% endset %}
+
+{% block body %}
+{% if items|length == 1 %}
+{# ---- one party: unchanged ---- #}
+{% set doc = items[0].doc %}
+<div class="doc-card no-print">
+  <div class="doc-head">
+    <i class="bi bi-file-earmark-text doc-ico"></i><span class="doc-bar"></span><h5>{{ doc.receiver_name }}</h5>{{ swoosh }}
+  </div>
+  <div class="doc-chips">{{ chips(doc, items[0].doc_no) }}</div>
+  <div class="doc-tools">{{ print_settings() }}{{ actions(doc, 'Print All') }}</div>
+</div>
+{{ papers(doc) }}
+
+{% else %}
+{# ---- several parties: one page, every party's letters previewed, one Print All ---- #}
+{% set tp = items|sum(attribute='doc.parcels') %}
+{% set ta = namespace(v=0) %}{% for it in items %}{% set ta.v = ta.v + (it.doc.invoice_value or 0) %}{% endfor %}
+<div class="doc-card batch no-print">
+  <div class="doc-head">
+    <i class="bi bi-files doc-ico"></i><span class="doc-bar"></span><h5>Letters ready for {{ items|length }} parties</h5>{{ swoosh }}
+  </div>
+  <div class="doc-chips">
+    <span class="pchip c-lav"><i class="bi bi-people"></i>{{ items|length }} Parties</span>
+    <span class="pchip c-blue"><i class="bi bi-box-seam"></i>{{ tp }} Parcel(s) in all</span>
+    <span class="pchip c-green"><i class="bi bi-currency-rupee"></i>{{ ta.v|inr }}</span>
+  </div>
+  <div class="batch-nav">
+    {% for it in items %}<a href="#party{{ loop.index }}"><span class="party-no">{{ loop.index }}</span>{{ it.doc.receiver_name }}</a>{% endfor %}
+  </div>
+  <div class="doc-tools">{{ print_settings() }}
+    <a class="btn btn-gold" id="printAll" target="_blank" data-copies href="{{ url_for('print_documents', ids=items|map(attribute='doc.id')|join(','), view=1) }}" title="Party 1: From, Outward, E-Way Bill; then party 2; and so on"><i class="bi bi-printer-fill me-2"></i>Print All Parties</a>
+    <a class="btn btn-ghost" data-copies href="{{ url_for('print_documents', ids=items|map(attribute='doc.id')|join(',')) }}"><i class="bi bi-download me-1"></i>Download All PDF</a>
+  </div>
+</div>
+{% for it in items %}{% set doc = it.doc %}
+<section class="party-block" id="party{{ loop.index }}">
+<div class="doc-card sub no-print">
+  <div class="doc-head">
+    <span class="party-no">{{ loop.index }}</span><span class="doc-bar"></span><h5>{{ doc.receiver_name }}</h5>{{ swoosh }}
+  </div>
+  <div class="doc-chips">{{ chips(doc, it.doc_no) }}</div>
+  <div class="doc-tools">{{ actions(doc, 'Print This Party') }}</div>
+</div>
+<div class="party-papers">{{ papers(doc) }}</div>
+</section>
+{% endfor %}
+{% endif %}
 {% endblock %}
 {% block scripts %}<script>
 // Scale the 210mm sheets to fit their column so the preview shows the whole page.
@@ -45,10 +92,11 @@ function fit(){document.querySelectorAll('.paper-wrap').forEach(w=>{
 window.addEventListener('load',fit);window.addEventListener('resize',fit);
 const nFrom=document.getElementById('nFrom'),nOut=document.getElementById('nOut'),nSets=document.getElementById('nSets');
 function n(el){return Math.min(50,Math.max(1,parseInt(el.value)||1))}
-function copies(){const k=n(nSets);return '&from_n='+Math.min(50,n(nFrom)*k)+'&out_n='+Math.min(50,n(nOut)*k)}
-document.querySelectorAll('a[href*="/pdf/"]').forEach(a=>{const base=a.getAttribute('href');
-  a.addEventListener('click',()=>{a.href=base+(base.includes('?')?'':'?')+copies().replace(/^&/,base.includes('?')?'&':'')})});
+function copies(){const k=n(nSets);return 'from_n='+Math.min(50,n(nFrom)*k)+'&out_n='+Math.min(50,n(nOut)*k)}
+// every print / download link carries the chosen copy counts
+document.querySelectorAll('a[data-copies]').forEach(a=>{const base=a.getAttribute('href');
+  a.addEventListener('click',()=>{a.href=base+(base.includes('?')?'&':'?')+copies()})});
 document.querySelectorAll('[data-print]').forEach(b=>b.addEventListener('click',()=>{
   // Open the letter as a PDF in a new tab: the browser's PDF viewer prints without date/URL headers and footers.
-  window.open('/document/{{ doc.id }}/pdf/'+b.dataset.print+'?view=1'+copies(),'_blank');}));
+  window.open('/document/'+b.dataset.doc+'/pdf/'+b.dataset.print+'?view=1&'+copies(),'_blank');}));
 </script>{% endblock %}
