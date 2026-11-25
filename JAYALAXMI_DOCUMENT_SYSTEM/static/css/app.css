@@ -157,3 +157,17 @@ table.t tr:last-child td{border-bottom:0}table.t tbody tr:hover{background:#fafb
 .party-block .doc-card.sub .doc-head{justify-content:flex-start}
 .party-block .doc-chips,.party-block .doc-tools{justify-content:center}
 .party-block .party-papers{margin:0;padding:6px 20px 22px}
+
+/* slide between the letters and the E-Way Bill(s) */
+.slider-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 12px}
+.sl-tabs{display:inline-flex;background:#fff;border:1px solid #D8D5CC;border-radius:999px;padding:4px;box-shadow:0 2px 6px rgba(15,30,60,.08)}
+.sl-tab{border:0;background:transparent;border-radius:999px;padding:7px 20px;font-weight:650;font-size:.9rem;color:#14213D !important;opacity:1 !important;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:background .2s,color .2s}
+.sl-tab i{color:#B8862B}
+.sl-tab.active{background:linear-gradient(180deg,#1B2B4B,#14213D);color:#fff !important}
+.sl-tab.active i{color:#E0B85A}
+.sl-arrow{width:38px;height:38px;border-radius:50%;border:1px solid #1B2B4B;background:#fff;color:#14213D;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(15,30,60,.1);cursor:pointer}
+.sl-arrow:hover{background:#FFFBF0;border-color:#B8862B}
+.slides{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;transition:height .25s ease;outline:none;align-items:flex-start}
+.slides::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;box-sizing:border-box;padding:2px 8px 10px;overflow:hidden}
+.ewb-img{display:block;width:100%;height:auto;background:#fff;box-shadow:0 2px 10px rgba(7,29,56,.18);border:1px solid #D9DEE7;border-radius:4px}

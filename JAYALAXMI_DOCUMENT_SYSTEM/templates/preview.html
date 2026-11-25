@@ -18,13 +18,37 @@
     {% if doc_no %}<span class="pchip c-lav"><i class="bi bi-file-earmark-text"></i>Doc No. {{ doc_no }}</span>{% endif %}
     <span class="pchip c-cream"><i class="bi bi-clock"></i>{{ doc.created_at }}</span>
 {% endmacro %}
-{% macro papers(doc) %}
+{% macro letters_row(doc) %}
 <div class="row g-3">
   {% for title, html, which in [('From Letter', doc.from_html, 'from'), ('Outward Letter', doc.outward_html, 'outward')] %}
   <div class="col-xl-6"><div class="paper-card"><div class="paper-label no-print"><i class="bi bi-file-earmark-text"></i>{{ title }}<a class="expand" target="_blank" href="{{ url_for('print_document', doc_id=doc.id, which=which) }}" title="Open full size"><i class="bi bi-arrows-angle-expand"></i></a></div>
     <div class="paper-wrap"><div class="paper-box"><div class="sheet">{{ html|safe }}</div></div></div></div></div>
   {% endfor %}
 </div>
+{% endmacro %}
+{% macro papers(doc, ewb) %}
+{% if not ewb %}{{ letters_row(doc) }}{% else %}
+{% set npages = ewb|sum(attribute='pages') %}
+<div class="slider" data-slider>
+  <div class="slider-nav no-print">
+    <button type="button" class="sl-arrow" data-dir="-1" title="Previous"><i class="bi bi-chevron-left"></i></button>
+    <div class="sl-tabs">
+      <button type="button" class="sl-tab active" data-i="0"><i class="bi bi-file-earmark-text"></i>Letters</button>
+      <button type="button" class="sl-tab" data-i="1"><i class="bi bi-file-earmark-pdf"></i>E-Way Bill{{ 's' if npages > 1 }}</button>
+    </div>
+    <button type="button" class="sl-arrow" data-dir="1" title="Next"><i class="bi bi-chevron-right"></i></button>
+  </div>
+  <div class="slides" tabindex="0">
+    <div class="slide">{{ letters_row(doc) }}</div>
+    <div class="slide"><div class="row g-3 justify-content-center">
+      {% for e in ewb %}{% set ei = loop.index %}{% for pg in range(e.pages) %}
+      <div class="col-xl-6"><div class="paper-card"><div class="paper-label no-print"><i class="bi bi-file-earmark-pdf"></i>E-Way Bill{% if ewb|length > 1 %} {{ ei }}{% endif %}{% if e.pages > 1 %} &middot; page {{ pg + 1 }}{% endif %}<a class="expand" target="_blank" href="{{ url_for('original_pdf', upload_id=e.id) }}" title="Open the original PDF"><i class="bi bi-arrows-angle-expand"></i></a></div>
+        <div class="paper-wrap"><img class="ewb-img" loading="lazy" alt="E-Way Bill" src="{{ url_for('upload_page_image', upload_id=e.id, page=pg) }}"></div></div></div>
+      {% endfor %}{% endfor %}
+    </div></div>
+  </div>
+</div>
+{% endif %}
 {% endmacro %}
 {% macro print_settings() %}
     <div class="ps-title"><i class="bi bi-printer"></i>Print Settings</div>
@@ -46,7 +70,7 @@
   <div class="doc-chips">{{ chips(doc, items[0].doc_no) }}</div>
   <div class="doc-tools">{{ print_settings() }}{{ actions(doc, 'Print All') }}</div>
 </div>
-{{ papers(doc) }}
+{{ papers(doc, items[0].ewb) }}
 
 {% else %}
 {# ---- several parties: one page, every party's letters previewed, one Print All ---- #}
@@ -78,7 +102,7 @@
   <div class="doc-chips">{{ chips(doc, it.doc_no) }}</div>
   <div class="doc-tools">{{ actions(doc, 'Print This Party') }}</div>
 </div>
-<div class="party-papers">{{ papers(doc) }}</div>
+<div class="party-papers">{{ papers(doc, it.ewb) }}</div>
 </section>
 {% endfor %}
 {% endif %}
@@ -86,10 +110,23 @@
 {% block scripts %}<script>
 // Scale the 210mm sheets to fit their column so the preview shows the whole page.
 function fit(){document.querySelectorAll('.paper-wrap').forEach(w=>{
-  const box=w.querySelector('.paper-box'),sh=box.querySelector('.sheet');
+  const box=w.querySelector('.paper-box');if(!box)return;const sh=box.querySelector('.sheet');
   sh.style.transform='none';const full=sh.offsetWidth,avail=w.clientWidth-36,s=Math.min(1,avail/full);
   sh.style.transform='scale('+s+')';box.style.width=(full*s)+'px';box.style.height=(sh.offsetHeight*s)+'px'})}
 window.addEventListener('load',fit);window.addEventListener('resize',fit);
+// slide between the letters and the E-Way Bill(s): swipe / trackpad, arrows, tabs or keyboard
+document.querySelectorAll('[data-slider]').forEach(sl=>{
+  const track=sl.querySelector('.slides'),slides=[...track.children],tabs=[...sl.querySelectorAll('.sl-tab')];let t;
+  const cur=()=>Math.max(0,Math.min(slides.length-1,Math.round(track.scrollLeft/track.clientWidth)));
+  function sync(){const i=cur();tabs.forEach((b,k)=>b.classList.toggle('active',k===i));track.style.height=slides[i].offsetHeight+'px'}
+  const go=i=>track.scrollTo({left:Math.max(0,Math.min(slides.length-1,i))*track.clientWidth,behavior:'smooth'});
+  track.addEventListener('scroll',()=>{clearTimeout(t);t=setTimeout(sync,60);const i=cur();tabs.forEach((b,k)=>b.classList.toggle('active',k===i))});
+  tabs.forEach(b=>b.addEventListener('click',()=>go(+b.dataset.i)));
+  sl.querySelectorAll('.sl-arrow').forEach(b=>b.addEventListener('click',()=>go(cur()+ +b.dataset.dir)));
+  track.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();go(cur()+1)}if(e.key==='ArrowLeft'){e.preventDefault();go(cur()-1)}});
+  sl.querySelectorAll('img').forEach(im=>im.addEventListener('load',sync));
+  window.addEventListener('load',sync);window.addEventListener('resize',()=>setTimeout(sync,50));sync();
+});
 const nFrom=document.getElementById('nFrom'),nOut=document.getElementById('nOut'),nSets=document.getElementById('nSets');
 function n(el){return Math.min(50,Math.max(1,parseInt(el.value)||1))}
 function copies(){const k=n(nSets);return 'from_n='+Math.min(50,n(nFrom)*k)+'&out_n='+Math.min(50,n(nOut)*k)}

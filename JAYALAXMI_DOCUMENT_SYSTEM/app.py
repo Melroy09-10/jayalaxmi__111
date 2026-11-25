@@ -586,7 +586,20 @@ def set_mobile(doc_id):
 
 
 def doc_item(doc):
-    return {"doc": doc, "doc_no": json.loads(doc["data_json"]).get("doc_no", "")}
+    """A document plus the pages of its original E-Way Bill PDF(s), for the slide-to-see preview."""
+    data = json.loads(doc["data_json"])
+    ids = data.get("upload_ids") or ([doc["upload_id"]] if doc["upload_id"] else [])
+    ewb = []
+    for uid in ids:
+        with db.connect() as c:
+            up = c.execute("SELECT original_name, stored_name FROM uploads WHERE id=?", (uid,)).fetchone()
+        try:
+            import pymupdf
+            with pymupdf.open(safe_child(config.UPLOAD_DIR, up["stored_name"])) as pdf:
+                ewb.append({"id": uid, "name": up["original_name"], "pages": len(pdf)})
+        except Exception:   # file moved or unreadable: just no slide for it
+            continue
+    return {"doc": doc, "doc_no": data.get("doc_no", ""), "ewb": ewb}
 
 
 @app.route("/document/<int:doc_id>")
@@ -721,6 +734,26 @@ def original_pdf(upload_id):
         abort(404)
     return send_file(safe_child(config.UPLOAD_DIR, up["stored_name"]), mimetype="application/pdf",
                      download_name=up["original_name"])
+
+
+@app.route("/upload/<int:upload_id>/page/<int:page>.png")
+def upload_page_image(upload_id, page):
+    """One page of an uploaded E-Way Bill as a picture, for the preview slider."""
+    import pymupdf
+    with db.connect() as c:
+        up = c.execute("SELECT stored_name FROM uploads WHERE id=?", (upload_id,)).fetchone()
+    if not up:
+        abort(404)
+    try:
+        with pymupdf.open(safe_child(config.UPLOAD_DIR, up["stored_name"])) as pdf:
+            if page < 0 or page >= len(pdf):
+                abort(404)
+            png = pdf[page].get_pixmap(matrix=pymupdf.Matrix(1.7, 1.7)).tobytes("png")
+    except (OSError, RuntimeError, ValueError):
+        abort(404)
+    resp = send_file(io.BytesIO(png), mimetype="image/png")
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
 
 
 # --------------------------------------------------------------------------- letter format
