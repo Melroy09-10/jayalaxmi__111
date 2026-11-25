@@ -1,99 +1,140 @@
 {% extends "base.html" %}{% block body %}
-<div class="mx-auto" style="max-width:760px">
-  <div class="page-head"><h5>Enter details</h5>
-    <div class="sub">{% if manual %}Fill in the details below, then create the letters.
-      {% elif multi %}{{ groups|length }} different parties found. E-Way Bills of the same party are added together; each party gets its own Outward and From letter. Check each party below, then create all the letters.
-      {% else %}{{ groups[0].ups|length }} E-Way Bill{{ 's' if groups[0].ups|length > 1 }} read. Check the details below, change anything you need, then create the letters.{% endif %}</div></div>
+{% set nbills = namespace(n=0) %}{% for g in groups %}{% set nbills.n = nbills.n + g.bills|length %}{% endfor %}
+<div class="mx-auto" style="max-width:880px">
 
-  <form method="post" novalidate>
-  {% for g in groups %}{% set values = g.vals %}{% set errors = g.errors %}{% set skips = g.skips %}{% set bills = g.bills %}
-  <div class="card mb-3 grp" data-group>
-    {% if multi %}<div class="px-4 pt-3 pb-1"><span class="fw-semibold" style="color:var(--bs-primary)">Party {{ loop.index }}</span>
-      <span class="text-secondary"> &middot; {{ g.auto.consignee_name or 'Name not found in the E-Way Bill' }} &middot; {{ bills|length }} E-Way Bill{{ 's' if bills|length > 1 }}</span></div>{% endif %}
-    {% if not manual %}<div class="table-responsive"><table class="table table-sm mb-0 align-middle">
-      <thead><tr><th class="ps-3">Doc No</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end pe-3">Amount</th></tr></thead>
-      <tbody>
-      {% for b in bills %}<tr>
-        <td class="ps-3">{{ b.doc_no or b.file }}</td>
-        <td>{% if b.date %}{{ b.date[8:10] }}/{{ b.date[5:7] }}/{{ b.date[0:4] }}{% else %}-{% endif %}</td>
-        <td>{{ b.party or '-' }}</td>
-        <td class="text-end">{{ b.parcels }}</td>
-        <td class="text-end pe-3">{{ b.value|inr if b.value != '' else '-' }}</td></tr>
-      {% endfor %}
-      </tbody></table></div>{% endif %}
-
-    <div class="p-4 row g-3">
-      <div class="col-md-4">
-        <label class="form-label">Total parcels</label>
-        <input name="{{ g.p }}parcels" value="{{ values.parcels }}" inputmode="numeric" class="form-control{% if errors.parcels %} is-invalid{% endif %}">
-        {% if errors.parcels %}<div class="invalid-feedback">{{ errors.parcels }}</div>{% endif %}
+  <div class="doc-card ed-hero">
+    <div class="doc-head">
+      <i class="bi bi-pencil-square doc-ico"></i><span class="doc-bar"></span><h5>Enter details</h5>
+      <svg class="doc-swoosh" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C90 66 170 52 230 28 C262 14 285 6 300 4 L300 20 C270 22 250 34 215 48 C160 66 80 70 0 70Z" fill="#C9A24F"/></svg>
+    </div>
+    <div class="ed-hero-body">
+      <div class="doc-chips" style="padding:0 0 10px">
+        {% if manual %}<span class="pchip c-lav"><i class="bi bi-keyboard"></i>Manual entry</span>
+        {% else %}<span class="pchip c-blue"><i class="bi bi-file-earmark-pdf"></i>{{ nbills.n }} E-Way Bill{{ 's' if nbills.n != 1 }} read</span>
+        <span class="pchip c-lav"><i class="bi bi-people"></i>{{ groups|length }} part{{ 'ies' if groups|length != 1 else 'y' }}</span>{% endif %}
+        <span class="pchip c-cream"><i class="bi bi-files"></i>{{ groups|length }} letter pair{{ 's' if groups|length != 1 }} will be created</span>
       </div>
-      <div class="col-md-4">
-        <label class="form-label">Total amount</label>
-        <div class="input-group"><span class="input-group-text">Rs.</span>
-          <input data-f="amount" name="{{ g.p }}invoice_value" value="{{ values.invoice_value }}" inputmode="text" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
-          {% if errors.invoice_value %}<div class="invalid-feedback">{{ errors.invoice_value }}</div>{% endif %}</div>
-        <div class="hint" data-f="calcHint">{% if bills|length > 1 %}Sum of all E-Way Bills.{% endif %}</div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_invoice_value" value="1" data-for="invoice_value"{% if 'invoice_value' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Date</label>
-        <input name="{{ g.p }}letter_date" value="{{ values.letter_date }}" placeholder="DD/MM/YYYY" class="form-control{% if errors.letter_date %} is-invalid{% endif %}">
-        {% if errors.letter_date %}<div class="invalid-feedback">{{ errors.letter_date }}</div>{% endif %}
-      </div>
-      <div class="col-12">
-        <label class="form-label">Address through</label>
-        <div class="position-relative">
-          <div data-f="thGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
-          <input data-f="through" name="{{ g.p }}through" value="{{ values.through }}" style="text-transform:uppercase;background:transparent;position:relative" class="form-control{% if errors.through %} is-invalid{% endif %}">
-        </div>
-        {% if errors.through %}<div class="text-danger small mt-1">{{ errors.through }}</div>{% endif %}
-        <div class="hint">Transport details from the E-Way Bill.</div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_through" value="1" data-for="through"{% if 'through' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
-      </div>
-      <div class="col-12">
-        <label class="form-label">Party name</label>
-        <input data-f="name" name="{{ g.p }}consignee_name" value="{{ values.consignee_name }}" class="form-control{% if errors.consignee_name %} is-invalid{% endif %}">
-        {% if errors.consignee_name %}<div class="invalid-feedback">{{ errors.consignee_name }}</div>{% endif %}
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_consignee_name" value="1" data-for="consignee_name"{% if 'consignee_name' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
-      </div>
-      <div class="col-12">
-        <label class="form-label">Party address</label>
-        <textarea data-f="address" name="{{ g.p }}consignee_address" rows="3" data-spellcheck lang="en" class="form-control{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
-        {% if errors.consignee_address %}<div class="invalid-feedback">{{ errors.consignee_address }}</div>{% endif %}
-        <div data-f="spell" class="small mt-1"></div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_consignee_address" value="1" data-for="consignee_address"{% if 'consignee_address' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
-      </div>
-      <div class="col-12">
-        <label class="form-label">Booking <span class="text-muted small">(optional)</span></label>
-        <div class="position-relative">
-          <div data-f="bkGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
-          <input data-f="booking" name="{{ g.p }}booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase;background:transparent;position:relative" class="form-control">
-          <div data-f="bkList" class="list-group position-absolute w-100 shadow-sm" style="z-index:20;max-height:220px;overflow:auto;display:none"></div>
-        </div>
-      </div>
-      <div class="col-12">
-        <label class="form-label">Phone numbers</label>
-        <div data-f="phones">
-          {% for ph in values.phones %}
-          <div class="input-group mb-2 phone-row">
-            <input name="{{ g.p }}phone" value="{{ ph }}" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control">
-            <button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button></div>
-          {% endfor %}
-        </div>
-        <button type="button" class="btn btn-ghost btn-sm" data-f="addPhone"><i class="bi bi-plus-lg me-1"></i>Add phone number</button>
-        <div class="hint">Add as many as needed. Each must have exactly 10 digits.</div>
-        <div class="form-check mt-1"><input class="form-check-input skip" type="checkbox" name="{{ g.p }}skip_phones" value="1" data-for="phones"{% if 'phones' in skips %} checked{% endif %}><label class="form-check-label small">Not needed</label></div>
-        {% if errors.phones %}<div class="text-danger small mt-1">{{ errors.phones }}</div>{% endif %}
+      <div class="ed-sub">
+        {% if manual %}Fill in the details below. Every letter is built from exactly what you type.
+        {% elif multi %}E-Way Bills of the same party are added together. Each party below gets its own Outward and From letter &mdash; check them, then create everything in one go.
+        {% else %}Check what was read from the E-Way Bill{{ 's' if nbills.n > 1 }}, change anything you need, then create the letters.{% endif %}
       </div>
     </div>
   </div>
-  {% endfor %}
-  <div class="card">
-    <div class="p-3 px-4 d-flex justify-content-between align-items-center" style="background:#FAFBFC;border-radius:var(--radius)">
-      <a class="btn btn-ghost" href="{{ url_for('dashboard') }}"><i class="bi bi-arrow-left me-1"></i>Cancel</a>
-      <button class="btn btn-gold px-4">Create {{ 'all letters' if multi else 'letters' }}<i class="bi bi-arrow-right ms-2"></i></button>
+
+  <form method="post" novalidate>
+  {% for g in groups %}{% set values = g.vals %}{% set errors = g.errors %}{% set skips = g.skips %}{% set bills = g.bills %}
+  <div class="ed-card" data-group>
+    <div class="ed-card-head">
+      <span class="party-no">{{ loop.index }}</span>
+      <div class="ed-card-title">
+        <div class="t">{% if multi %}Party {{ loop.index }}{% elif manual %}New letters{% else %}Letter details{% endif %}</div>
+        <div class="s">{% if bills %}{{ g.auto.consignee_name or 'Name not found in the E-Way Bill' }}{% else %}Typed by hand{% endif %}</div>
+      </div>
+      {% if bills %}<span class="ed-pill"><i class="bi bi-file-earmark-pdf"></i>{{ bills|length }} E-Way Bill{{ 's' if bills|length > 1 }}</span>{% endif %}
     </div>
+
+    {% if bills %}
+    <div class="ed-bills">
+      <div class="ed-bills-title"><i class="bi bi-receipt"></i>Read from the E-Way Bill{{ 's' if bills|length > 1 }}</div>
+      <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+        <thead><tr><th>Doc No</th><th>Date</th><th>Party</th><th class="text-end">Parcels</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+        {% for b in bills %}<tr>
+          <td class="fw-semibold">{{ b.doc_no or b.file }}</td>
+          <td>{% if b.date %}{{ b.date[8:10] }}/{{ b.date[5:7] }}/{{ b.date[0:4] }}{% else %}-{% endif %}</td>
+          <td>{{ b.party or '-' }}</td>
+          <td class="text-end">{{ b.parcels }}</td>
+          <td class="text-end">{{ b.value|inr if b.value != '' else '-' }}</td></tr>
+        {% endfor %}
+        </tbody></table></div>
+    </div>
+    {% endif %}
+
+    {# ---------------- Shipment ---------------- #}
+    <div class="ed-sec">
+      <div class="ed-sec-title"><span class="ed-ico"><i class="bi bi-box-seam"></i></span>Shipment</div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="ed-lbl"><span>Total parcels</span></div>
+          <input name="{{ g.p }}parcels" value="{{ values.parcels }}" inputmode="numeric" placeholder="e.g. 5" class="form-control{% if errors.parcels %} is-invalid{% endif %}">
+          {% if errors.parcels %}<div class="invalid-feedback">{{ errors.parcels }}</div>{% endif %}
+        </div>
+        <div class="col-md-5">
+          <div class="ed-lbl"><span>Total amount</span></div>
+          <div class="input-group"><span class="input-group-text">Rs.</span>
+            <input data-f="amount" name="{{ g.p }}invoice_value" value="{{ values.invoice_value }}" inputmode="text" placeholder="0.00" class="form-control{% if errors.invoice_value %} is-invalid{% endif %}">
+            {% if errors.invoice_value %}<div class="invalid-feedback">{{ errors.invoice_value }}</div>{% endif %}</div>
+          <div class="ed-hint" data-f="calcHint">{% if bills|length > 1 %}Sum of all E-Way Bills.{% endif %}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="ed-lbl"><span>Date</span></div>
+          <input data-f="date" name="{{ g.p }}letter_date" value="{{ values.letter_date }}" inputmode="numeric" maxlength="10" placeholder="DD/MM/YY" class="form-control{% if errors.letter_date %} is-invalid{% endif %}">
+          {% if errors.letter_date %}<div class="invalid-feedback">{{ errors.letter_date }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ---------------- Transport ---------------- #}
+    <div class="ed-sec">
+      <div class="ed-sec-title"><span class="ed-ico"><i class="bi bi-truck"></i></span>Transport</div>
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="ed-lbl"><span>Address through</span></div>
+          <div class="position-relative">
+            <div data-f="thGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
+            <input data-f="through" name="{{ g.p }}through" value="{{ values.through }}" placeholder="Transporter name" style="text-transform:uppercase;background:transparent;position:relative" class="form-control{% if errors.through %} is-invalid{% endif %}">
+          </div>
+          {% if errors.through %}<div class="text-danger small mt-1">{{ errors.through }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ---------------- Receiver ---------------- #}
+    <div class="ed-sec">
+      <div class="ed-sec-title"><span class="ed-ico"><i class="bi bi-person-lines-fill"></i></span>Receiver</div>
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="ed-lbl"><span>Party name</span></div>
+          <input data-f="name" name="{{ g.p }}consignee_name" value="{{ values.consignee_name }}" placeholder="Receiver's name" class="form-control{% if errors.consignee_name %} is-invalid{% endif %}">
+          {% if errors.consignee_name %}<div class="invalid-feedback">{{ errors.consignee_name }}</div>{% endif %}
+        </div>
+        <div class="col-12">
+          <div class="ed-lbl"><span>Party address</span></div>
+          <textarea data-f="address" name="{{ g.p }}consignee_address" rows="4" data-spellcheck lang="en" placeholder="Party address" class="form-control ed-area{% if errors.consignee_address %} is-invalid{% endif %}">{{ values.consignee_address }}</textarea>
+          {% if errors.consignee_address %}<div class="invalid-feedback">{{ errors.consignee_address }}</div>{% endif %}
+          <div data-f="spell" class="small mt-1"></div>
+        </div>
+        <div class="col-12">
+          <div class="ed-lbl"><span>Booking</span><span class="ed-opt">optional</span></div>
+          <div class="position-relative">
+            <div data-f="bkGhost" aria-hidden="true" class="form-control position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;border-color:transparent;background:#fff;text-transform:uppercase;white-space:pre;overflow:hidden"></div>
+            <input data-f="booking" name="{{ g.p }}booking" value="{{ values.booking }}" placeholder="e.g. SION" style="text-transform:uppercase;background:transparent;position:relative" class="form-control">
+            <div data-f="bkList" class="list-group position-absolute w-100 shadow-sm" style="z-index:20;max-height:220px;overflow:auto;display:none"></div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="ed-lbl"><span>Phone numbers</span></div>
+          <div data-f="phones" data-name="{{ g.p }}phone">
+            {% for ph in values.phones %}
+            <div class="input-group mb-2 phone-row">
+              <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+              <input name="{{ g.p }}phone" value="{{ ph }}" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control">
+              <button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button></div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm ed-add" data-f="addPhone"><i class="bi bi-plus-lg me-1"></i>Add phone number</button>
+          {% if errors.phones %}<div class="text-danger small mt-1">{{ errors.phones }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div style="height:18px"></div>
+  </div>
+  {% endfor %}
+
+  <div class="ed-bar">
+    <a class="btn btn-ghost" href="{{ url_for('dashboard') }}"><i class="bi bi-arrow-left me-1"></i>Cancel</a>
+    <button class="btn btn-gold px-4">Create {{ 'all letters' if multi else 'letters' }}<i class="bi bi-arrow-right ms-2"></i></button>
   </div>
   </form>
 </div>
@@ -130,9 +171,9 @@ function initGroup(root){
   // phones
   const box=q('phones');
   function row(v){const d=document.createElement('div');d.className='input-group mb-2 phone-row';
-    d.innerHTML='<input name="'+box.dataset.name+'" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control"><button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button>';
+    d.innerHTML='<span class="input-group-text"><i class="bi bi-telephone"></i></span><input name="'+box.dataset.name+'" inputmode="numeric" maxlength="10" placeholder="10-digit number" class="form-control"><button type="button" class="btn btn-ghost rm" title="Remove"><i class="bi bi-x-lg"></i></button>';
     d.querySelector('input').value=v||'';box.appendChild(d);return d}
-  box.dataset.name=root.querySelector('[data-for=phones]').name.replace('skip_phones','phone');
+  if(!box.querySelector('.phone-row'))row('');
   q('addPhone').addEventListener('click',()=>row('').querySelector('input').focus());
   box.addEventListener('click',e=>{const b=e.target.closest('.rm');if(b)b.closest('.phone-row').remove()});
   box.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,10)});
@@ -151,16 +192,27 @@ function initGroup(root){
   const th=q('through');
   suggest({input:th,ghost:q('thGhost'),url:'/transporters',key:'items',upper:true});
   th.addEventListener('input',function(){const a=this.selectionStart,b=this.selectionEnd;this.value=this.value.toUpperCase();this.setSelectionRange(a,b)});
+  // date: type 251026 -> 25/10/26 (or 25102026 -> 25/10/2026)
+  const dt=q('date');
+  dt.addEventListener('input',()=>{const d=dt.value.replace(/\D/g,'').slice(0,8);
+    dt.value=d.length>4?d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4):d.length>2?d.slice(0,2)+'/'+d.slice(2):d});
   // amount calculator
   const am=q('amount'),ch=q('calcHint'),chDef=ch.textContent;
   am.addEventListener('input',()=>{const v=calc(am.value);ch.textContent=v===null?chDef:'= '+v.toFixed(2)+'  (press Enter or click away to use it)'});
   function applyCalc(){const v=calc(am.value);if(v!==null){am.value=v.toFixed(2);ch.textContent=chDef}return v!==null}
   am.addEventListener('blur',applyCalc);
-  am.addEventListener('keydown',e=>{if(e.key==='Enter'&&applyCalc())e.preventDefault()});
-  // "Not needed" ticks
-  const fieldsOf={invoice_value:['[data-f=amount]'],through:['[data-f=through]','[data-f=thGhost]'],consignee_name:['[data-f=name]'],consignee_address:['[data-f=address]'],phones:['[data-f=phones] input','[data-f=addPhone]','[data-f=phones] .rm']};
-  function applySkip(cb){const off=cb.checked;(fieldsOf[cb.dataset.for]||[]).forEach(sel=>root.querySelectorAll(sel).forEach(el=>{el.disabled=off}))}
-  root.querySelectorAll('.skip').forEach(cb=>{cb.addEventListener('change',()=>applySkip(cb));applySkip(cb)});
+  am.addEventListener('keydown',e=>{if(e.key==='Enter')applyCalc()});
 }
 document.querySelectorAll('[data-group]').forEach(initGroup);
+// Enter = next box (Shift+Enter = new line inside the address); on the last box it focuses "Create"
+const form=document.querySelector('form[method=post]');
+form.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.defaultPrevented||e.isComposing)return;
+  const t=e.target;if(!t.matches('input:not([type=checkbox]):not([type=hidden]),textarea'))return;
+  if(t.tagName==='TEXTAREA'&&e.shiftKey)return;
+  e.preventDefault();
+  const f=[...form.querySelectorAll('input:not([type=checkbox]):not([type=hidden]),textarea')].filter(x=>!x.disabled&&x.offsetParent!==null);
+  const n=f[f.indexOf(t)+1];
+  if(n){n.focus();if(n.tagName==='INPUT')n.select()}else form.querySelector('.ed-bar .btn-gold').focus();
+});
 </script>{% endblock %}

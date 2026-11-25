@@ -337,9 +337,12 @@ def created_documents():
 
 def parse_form_date(text):
     """'15/11/2026' (also - or . separators) -> datetime, or None."""
-    m = re.fullmatch(r"\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\s*", text or "")
+    m = re.fullmatch(r"\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})\s*", text or "")
     try:
-        return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1))) if m else None
+        if not m:
+            return None
+        year = int(m.group(3)) + (2000 if len(m.group(3)) == 2 else 0)
+        return datetime(year, int(m.group(2)), int(m.group(1)))
     except ValueError:
         return None
 
@@ -384,8 +387,7 @@ def read_group_form(f, p, auto):
     """Read and check one party's form fields (names start with prefix p). Returns (values, errors, skips, out)."""
     clean = lambda k: " ".join(f.get(p + k, "").split())
     errors, out = {}, {}
-    # every field must be filled, unless the user ticks "Not needed" for it
-    skips = {k for k in SKIPPABLE if f.get(p + "skip_" + k)}
+    skips = set()   # every field is required except Booking
     values = dict(consignee_name=clean("consignee_name"), letter_date=clean("letter_date"),
                   parcels=clean("parcels"), invoice_value=clean("invoice_value"), through=clean("through").upper(),
                   booking=clean("booking"),
@@ -393,7 +395,7 @@ def read_group_form(f, p, auto):
     values["phones"] = [x.strip() for x in f.getlist(p + "phone") if x.strip()]
     for k in skips:
         values[k] = [] if k == "phones" else ""
-    fill = "Please fill this in, or tick 'Not needed'."
+    fill = "Please fill this in."
     for k in ("consignee_name", "consignee_address", "through"):
         if k in skips:
             out[k] = ""
@@ -410,7 +412,7 @@ def read_group_form(f, p, auto):
     if dt:
         out["letter_date"] = dt.strftime("%Y-%m-%d")
     else:
-        errors["letter_date"] = "Enter the date as DD/MM/YYYY, e.g. 15/11/2026"
+        errors["letter_date"] = "Enter the date as DD/MM/YY, e.g. 25/10/26"
     if values["parcels"].isdigit() and int(values["parcels"]) > 0:
         out["parcels"] = int(values["parcels"])
     else:
@@ -435,7 +437,7 @@ def read_group_form(f, p, auto):
         if digits not in cleaned:
             cleaned.append(digits)
     if "phones" not in skips and not values["phones"]:
-        errors["phones"] = "Add a phone number, or tick 'Not needed'."
+        errors["phones"] = "Add a phone number."
     out["consignee_mobile"] = ", ".join(cleaned)
     return values, errors, skips, out
 
